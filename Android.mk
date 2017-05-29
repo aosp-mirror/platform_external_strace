@@ -37,10 +37,12 @@ LOCAL_PATH := $(call my-dir)
 
 # -------------------------------------------------------------------------
 
+ifneq ($(strip $(TARGET_ARCH)),mips)
+
 include $(CLEAR_VARS)
 
-strace_version := $(shell grep strace $(LOCAL_PATH)/debian/changelog | \
-                          head -1 | cut -d " " -f 2)
+strace_version := "4.17"
+strace_year := "2017"
 
 LOCAL_SRC_FILES := \
     access.c \
@@ -120,6 +122,7 @@ LOCAL_SRC_FILES := \
     mtd.c \
     net.c \
     netlink.c \
+    nsfs.c \
     numa.c \
     oldstat.c \
     open.c \
@@ -133,6 +136,7 @@ LOCAL_SRC_FILES := \
     print_mq_attr.c \
     print_msgbuf.c \
     print_sigevent.c \
+    print_sg_req_info.c \
     print_statfs.c \
     print_struct_stat.c \
     print_time.c \
@@ -153,6 +157,8 @@ LOCAL_SRC_FILES := \
     renameat.c \
     resource.c \
     rtc.c \
+    rt_sigframe.c \
+    rt_sigreturn.c \
     sched.c \
     scsi.c \
     seccomp.c \
@@ -172,6 +178,7 @@ LOCAL_SRC_FILES := \
     stat64.c \
     statfs.c \
     statfs64.c \
+    statx.c \
     strace.c \
     swapon.c \
     sync_file_range.c \
@@ -247,6 +254,7 @@ LOCAL_CFLAGS := \
     -DHAVE_POLL_H=1 \
     -DHAVE_PRCTL=1 \
     -DHAVE_PWRITEV=1 \
+    -DHAVE_SCSI_SG_H=1 \
     -DHAVE_SENDMSG=1 \
     -DHAVE_SIGACTION=1 \
     -DHAVE_SIG_ATOMIC_T=1 \
@@ -291,7 +299,8 @@ LOCAL_CFLAGS := \
     -DMAJOR_IN_SYSMACROS \
     -DPACKAGE_NAME='"strace"' \
     -DPACKAGE_URL='"https://strace.io"' \
-    -DPACKAGE_VERSION='"$(strace_version)"' \
+    -DPACKAGE_VERSION='$(strace_version)' \
+    -DCOPYRIGHT_YEAR='$(strace_year)' \
     -DSIZEOF_KERNEL_LONG_T=SIZEOF_LONG \
     -DSIZEOF_OFF_T=SIZEOF_LONG \
     -DSIZEOF_LONG_LONG=8 \
@@ -349,3 +358,5 @@ LOCAL_MODULE_TAGS := debug
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 include $(BUILD_EXECUTABLE)
+
+endif
