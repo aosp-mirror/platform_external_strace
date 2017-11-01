@@ -1,3 +1,5 @@
+#include "negated_errno.h"
+
 static void
 get_error(struct tcb *tcp, const bool check_errno)
 {
@@ -19,9 +21,5 @@ get_error(struct tcb *tcp, const bool check_errno)
 		tcp->u_error = -rax;
 	} else {
 		tcp->u_rval = rax;
-#ifdef X32
-		/* tcp->u_rval contains a truncated value */
-		tcp->u_lrval = rax;
-#endif
 	}
 }

@@ -1,3 +1,235 @@
+Noteworthy changes in release 4.19 (2017-09-05)
+===============================================
+
+* Changes in behaviour
+  * Changed formatting of personality names on tile architecture in order
+    to make it in line with other multi-personality architectures.
+  * Changed field output order in struct v4l2_requestbuffers to improve in/out
+    field formatting.
+  * Changed handling of multiple signal= specifications in an injection
+    expression: multiple specification now leads to error instead of implicit
+    usage the last specification.
+
+* Improvements
+  * Enhanced decoding of optlen argument of getsockopt syscall.
+  * Enhanced decoding of SO_LINGER option of getsockopt and setsockopt syscalls.
+  * Enhanced decoding of SO_PEERCRED option of getsockopt syscall.
+  * Enhanced decoding of IP_ADD_MEMBERSHIP, IP_DROP_MEMBERSHIP,
+    IPV6_ADD_MEMBERSHIP, IPV6_DROP_MEMBERSHIP, IPV6_JOIN_ANYCAST,
+    IPV6_LEAVE_ANYCAST, MCAST_JOIN_GROUP, and MCAST_LEAVE_GROUP options
+    of setsockopt syscall.
+  * Enhanced decoding of KEYCTL_DH_COMPUTE operation of keyctl syscall
+    (KDF parameters decoding).
+  * Implemented decoding of KEYCTL_RESTRICT_KEYRING operation of keyctl syscall.
+  * Enhanced decoding of UFFDIO_API ioctl command.
+  * Enhanced decoding of BPF_PROG_LOAD, BPF_MAP_CREATE, BPF_MAP_LOOKUP_ELEM,
+    and BPF_MAP_GET_NEXT_KEY commands of bpf syscall.
+  * Implemented decoding of linux socket filter programs specified
+    for SO_ATTACH_FILTER and SO_ATTACH_REUSEPORT_CBPF socket options.
+  * Implemented decoding of inet_diag_req_v2, inet_diag_req_compat,
+    packet_diag_msg, and smc_diag_msg netlink attributes of NETLINK_SOCK_DIAG.
+  * Implemented NETLINK_SELINUX protocol specific decoding.
+  * Implemented decoding of netlink message ack flags.
+  * Implemented decoding of nlmsgerr netlink attributes.
+  * Implemented basic protocol specific decoding of NETLINK_CRYPTO.
+  * Implemented decoding of crypto_user_alg netlink attributes
+    of NETLINK_CRYPTO.
+  * Implemented basic protocol specific decoding of addr, addrlabel, dcb, link,
+    mdb, neigh, neightbl, netconf, nsid, route, rule, tc, and tca messages
+    of NETLINK_ROUTE.
+  * Implemented decoding of NETLINK_KOBJECT_UEVENT messages.
+  * Improved handling of unexpected tracees (the ones that cloned with
+    CLONE_PARENT/CLONE_PTRACE or called PTRACE_TRACEME on themselves): they
+    are now PTRACE_DETACH'ed instead of PTRACE_CONT'ed.
+  * Updated lists of BPF_*, KEY_*, RWF_*, SCM_*, SO_*, and *_MAGIC constants.
+  * Added decoding of arch_prctl syscall on x86.
+  * Added decoding of seccomp, bpf, userfaultfd, membarrier, mlock2,
+    copy_file_range, preadv2, pwritev2, and statx on alpha.
+  * Added decoding of statx syscall on microblaze.
+  * Added decoding of s390_guarded_storage syscall on s390.
+  * Updated lists of ioctl commands from Linux 4.13.
+  * Enhanced manual page.
+
+* Bug fixes
+  * Fixed printing of group_req structure on non-native personalities.
+  * Fixed output formatting of blkpg_ioctl_arg, dm_name_list, and iocb
+    structures.
+  * Fixed formatting of nul-terminated strings which have kernel-imposed size
+    limit.
+  * Fixed printing of paths that hit PATM_MAX limit in order to match kernel's
+    behaviour.
+  * Fixed build warnings on Android mips64.
+  * Fixed unused function "is_negated_errno" build warning when built
+    with clang.
+  * Fixed syscall number and arguments retrieval behaviour on sparc64 and
+    mips o32 after prctl(PR_SET_DUMPABLE, 0) makes PTRACE_PEEKTEXT impossible
+    to use if Linux kernel has commit v4.10-rc1~114^2~2.
+  * Fixed path tracing for execveat, symlink, symlinkat, inotify_add_watch,
+    and inotify_init syscalls.
+  * Fixed personality switch printing on sparc64 and risc-v.
+
+Noteworthy changes in release 4.18 (2017-07-05)
+===============================================
+
+* Improvements
+  * Implemented decoding of SCM_TIMESTAMP* control messages.
+  * Implemented decoding of netlink NLMSG_DONE messages.
+  * Implemented decoding of netlink generic nlmsg_type and nlmsg_flags.
+  * Implemented decoding of NETLINK_AUDIT, NETLINK_NETFILTER, NETLINK_ROUTE,
+    NETLINK_SELINUX, NETLINK_SOCK_DIAG, and NETLINK_XFRM message types.
+  * Implemented decoding of NETLINK_GENERIC protocol families.
+  * Implemented basic protocol specific decoding of AF_INET, AF_INET6,
+    AF_NETLINK, AF_PACKET, AF_SMC, and AF_UNIX messages of NETLINK_SOCK_DIAG.
+  * Implemented basic decoding of netlink attributes.
+  * Implemented basic protocol specific decoding of AF_INET, AF_NETLINK,
+    AF_PACKET, AF_SMC, and AF_UNIX netlink attributes of NETLINK_SOCK_DIAG.
+  * Implemented decoding of inet_diag_msg, netlink_diag_msg, and unix_diag_msg
+    netlink attributes of NETLINK_SOCK_DIAG.
+  * Updated lists of ARPHRD_*, KEYCTL_*, NDIAG_SHOW_*, RTM_*, SCM_*, SCTP_*,
+    SO_*, V4L2_*, and prctl ARCH_* constants.
+  * Updated lists of ioctl commands from Linux 4.12.
+
+* Bug fixes
+  * In interactive mode (-I2), those signals that were blocked at startup
+    will remain blocked for the whole period of strace execution.
+  * strace no longer resets SIGCHLD handler in tracees to the default action.
+  * When traced command is terminated by a blocked signal, strace unblocks
+    that signal to ensure its own termination with the same signal.
+  * Fixed corner cases in decoding of old sigaction syscall.
+  * Fixed build with old kernel headers on mips.
+  * Fixed build on aarch64 and tile with glibc >= 2.26.
+  * Fixed build on arc and nios2.
+
+Noteworthy changes in release 4.17 (2017-05-24)
+===============================================
+
+* Changes in command line syntax
+  * Syscall classes specified in -e trace= option now have % prefix (like
+    -e trace=%process).  Old style class names without leading % are still
+    supported, but considered deprecated now.
+
+* Improvements
+  * Optimized syscall filtering.
+  * Improved representation of timestamps.
+  * Enhanced decoding of sched_setattr syscall.
+  * Added -e trace=%stat option for tracing variants of stat syscall.
+  * Added -e trace=%lstat option for tracing variants of lstat syscall.
+  * Added -e trace=%fstat option for tracing variants of fstat and fstatat
+    syscalls.
+  * Added -e trace=%%stat option for tracing syscalls used for querying file
+    status information (stat, lstat, fstat, fstatat, statx, and their
+    variations).
+  * Added -e trace=%statfs option for tracing statfs, statfs64 and statvfs
+    syscalls.
+  * Added -e trace=%fstatfs option for tracing fstatfs, fstatfs64 and fstatvfs
+    syscalls.
+  * Added -e trace=%%statfs option for tracing syscalls used for querying file
+    system statistics information (statfs-like, fstatfs-like and ustat).
+  * Added -e trace=/regex option for filtering syscalls using regular
+    expressions.
+  * Added support for prepending of question mark before syscall qualification
+    in -e trace expressions in order to suppress error in case no syscalls
+    matched the provided qualification.
+  * Implemented decoding of signal mask in rt_sigreturn syscall on alpha, arc,
+    arm, avr32, bfin, cris, hppa, m68k, metag, microblaze, mips, nios2, or1k,
+    powerpc, powerpc64, riscv, sh, sh64, sparc, sparc64, tile, x86, and xtensa
+    architectures.
+  * Implemented decoding of statx syscall.
+  * Implemented decoding of NS_* ioctl commands.
+  * Implemented decoding of the remaining V4L2_BUF_TYPE_* types.
+  * Implemented decoding of VIDIOC_[SG]_TUNER ioctl commands.
+  * Implemented decoding of NLMSG_ERROR netlink messages.
+  * Improved decoding of BPF_PROG_ATTACH command of bpf syscall.
+  * Improved decoding of misplaced parts in DM_* ioctl commands.
+  * Updated lists of ioctl commands from Linux 4.11.
+
+* Bug fixes
+  * Fixed decoding of flags argument of preadv2 and pwritev2 syscalls on x32.
+  * Fixed the number of arguments and tracing flags of alpha specific syscalls.
+  * Fixed decoding of old sigsuspend syscall on alpha, cris, mips, powerpc,
+    powerpc64, sh, sh64, sparc, and sparc64.
+  * Fixed decoding of sgetmask and ssetmask syscalls on 64-bit architectures.
+  * Fixed decoding of netlink messages received within struct msghdr.
+  * Worked around a bug in miscompiled aarch64 kernels leading to the 3rd
+    argument of sched_getattr syscall being not quite 32-bit.
+  * Fixed corner cases of printing inaccessible times argument of utimes
+    and futimesat syscalls.
+
+Noteworthy changes in release 4.16 (2017-02-14)
+===============================================
+
+* Improvements
+  * Implemented syscall return value injection (-e inject=SET:retval= option).
+  * Implemented signal injection (-e inject=SET:signal= option).
+  * Implemented decoding of SUID_DUMP_* constants in PR_[GS]ET_DUMPABLE.
+  * Implemented decoding of all SG_* ioctl commands.
+  * Implemented decoding of ustat syscall.
+  * Implemented decoding of BPF_OBJ_PIN, BPF_OBJ_GET, BPF_PROG_ATTACH,
+    and BPF_PROG_DETACH commands of bpf syscall.
+  * Enhanced decoding of sg_io_hdr and sg_io_v4 structures.
+  * Enhanced decoding of get_robust_list, getrandom, io_submit, set_robust_list
+    syscalls.
+  * Enhanced decoding of entities of kernel long type on x32 and mips n32 ABIs.
+  * Updated lists of IP_*, IPV6_*, and LOOP_* constants.
+  * Updated lists of ioctl commands from Linux 4.10.
+  * Added decoding of recently added syscalls on avr32, microblaze, ppc,
+    and ppc64.
+
+* Bug fixes
+  * Fixed pathmatch of oldselect syscall on 64-bit architectures.
+  * Fixed decoding of mmap2 syscall on s390 when arguments are not available.
+  * Fixed decoding of kexec_file_load, mprotect, pkey_mprotect, prctl, preadv*,
+    and pwritev* syscalls on x32.
+  * Fixed printing of string arguments of getxattr and setxattr syscalls
+    when -s option is used to limit the printed string size.
+  * Fixed decoding of ifconf, ifreq, and loop_info structures on non-native
+    personalities.
+  * Fixed decoding of SG_* and LOOP_* ioctl commands.
+  * Fixed build on mips with musl libc.
+  * Fixed cross-building of ioctlsort.
+  * Applied minor formatting fixes to the manual page.
+
+Noteworthy changes in release 4.15 (2016-12-14)
+===============================================
+
+* Changes in behavior
+  * Time stamps are now printed according to ISO 8601.
+  * Changed output format of val3 parameter of futex FUTEX_WAKE_OP operation.
+  * The last argument of mincore, sched_getaffinity, and sched_setaffinity
+    syscalls is now formatted as an array.
+
+* Improvements
+  * Implemented syscall fault injection (-e fault=... option).
+  * Implemented decoding of DM_* ioctl commands.
+  * Implemented decoding of attr parameter of perf_event_open syscall.
+  * Implemented decoding of pkey_alloc, pkey_free, and pkey_mprotect syscalls.
+  * Implemented dumping of mq_timedsend and mq_timedreceive syscalls.
+  * Implemented decoding of PR_SET_FP_MODE and PR_GET_FP_MODE operations
+    of prctl syscall.
+  * Implemented PTRACE_GETREGS API support on m68k.
+  * Updated lists of ARCH_*, BPF_*, BTRFS_*, FALLOC_*, MS_*, *_MAGIC,
+    and V4L2_* constants.
+  * Updated lists of ioctl commands from Linux 4.9.
+  * Added decoding of recently added syscalls on arc, x32, and xtensa.
+  * Enhanced manual page.
+
+* Bug fixes
+  * Fixed corner cases in decoding of exit, exit_group, futimesat, getgroups,
+    getresuid, init_module, inotify_init1, kcmp, kexec_load, lookup_dcookie,
+    mq_getsetattr, mq_notify, mq_open, mq_timedreceive, mq_timedsend,
+    name_to_handle_at, prctl, process_vm_readv, process_vm_writev, setfsuid,
+    setgroups, setns, unshare, and utimes syscalls.
+  * Fixed handling of verbose flag in printing of controls array
+    of struct v4l2_ext_controls.
+  * Fixed omission of field names in the output of capability, sigaction,
+    sigevent, statfs, timespec, timeval, and utimbuf structures.
+  * Fixed printing of unknown syscalls in siginfo structure.
+  * Fixed decoding of ioctl constants on m68k.
+  * Fixed cris architecture support.
+  * Fixed cross build when host compiler does not support the same
+    set of warning flags as the cross compiler.
+  * Fixed build on SLE10 and SLE11.
+
 Noteworthy changes in release 4.14 (2016-10-04)
 ===============================================
 
@@ -702,7 +934,7 @@ Changes in 4.4
 ==============
 * Fix Linux/ia64 support, looks like someone renamed a few things on us
 * Fix the ioctl setup for Linux, turned out it did not really work.
-  Improve the ioctl extracter as well so we decode some more ones.
+  Improve the ioctl extractor as well so we decode some more ones.
 
 Changes in 4.3.1
 ================
@@ -794,7 +1026,7 @@ New Features in version 3.0
 ===========================
 
 * non-ascii strings can be optionally printed entirely in hex
-* the output format is readable when mutiple processes are generating output
+* the output format is readable when multiple processes are generating output
 * exit values are printed in an alignment column
 * is is possible to suppress messages about attaching and detaching
 * various tracing features can be enabled on a per syscall/signal/desc basis

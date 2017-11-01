@@ -4,6 +4,7 @@
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2005-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +37,7 @@
 #ifdef HAVE_STRUCT___OLD_KERNEL_STAT
 
 static void
-print_old_kernel_stat(struct tcb *tcp, const unsigned long addr)
+print_old_kernel_stat(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct __old_kernel_stat buf;
 	if (umove_or_printaddr(tcp, addr, &buf))

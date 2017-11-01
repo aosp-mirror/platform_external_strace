@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +41,8 @@ typedef struct statfs64 struct_statfs64;
 #include "statfs.h"
 
 MPERS_PRINTER_DECL(bool, fetch_struct_statfs,
-		   struct tcb *tcp, const long addr, struct strace_statfs *p)
+		   struct tcb *const tcp, const kernel_ulong_t addr,
+		   struct strace_statfs *const p)
 {
 	struct_statfs b;
 
@@ -78,12 +80,12 @@ MPERS_PRINTER_DECL(bool, fetch_struct_statfs,
 #endif
 
 MPERS_PRINTER_DECL(bool, fetch_struct_statfs64,
-		   struct tcb *tcp, const long addr, const unsigned long size,
-		   struct strace_statfs *p)
+		   struct tcb *const tcp, const kernel_ulong_t addr,
+		   const kernel_ulong_t size, struct strace_statfs *const p)
 {
 	struct_statfs64 b;
 
-        if (sizeof(b) != size
+	if (sizeof(b) != size
 #ifdef COMPAT_STATFS64_PADDED_SIZE
 	    && sizeof(b) != COMPAT_STATFS64_PADDED_SIZE
 #endif

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,7 +27,9 @@
  */
 
 #include "defs.h"
-#include "kernel_types.h"
+
+#include "keyctl_kdf_params.h"
+#include "print_fields.h"
 
 typedef int32_t key_serial_t;
 
@@ -52,15 +55,15 @@ print_keyring_serial_number(key_serial_t id)
 SYS_FUNC(add_key)
 {
 	/* type */
-	printstr(tcp, tcp->u_arg[0], -1);
+	printstr(tcp, tcp->u_arg[0]);
 	/* description */
 	tprints(", ");
-	printstr(tcp, tcp->u_arg[1], -1);
+	printstr(tcp, tcp->u_arg[1]);
 	/* payload */
 	tprints(", ");
-	printstr(tcp, tcp->u_arg[2], tcp->u_arg[3]);
+	printstrn(tcp, tcp->u_arg[2], tcp->u_arg[3]);
 	/* payload length */
-	tprintf(", %lu, ", tcp->u_arg[3]);
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[3]);
 	/* keyring serial number */
 	print_keyring_serial_number(tcp->u_arg[4]);
 
@@ -70,13 +73,13 @@ SYS_FUNC(add_key)
 SYS_FUNC(request_key)
 {
 	/* type */
-	printstr(tcp, tcp->u_arg[0], -1);
+	printstr(tcp, tcp->u_arg[0]);
 	/* description */
 	tprints(", ");
-	printstr(tcp, tcp->u_arg[1], -1);
+	printstr(tcp, tcp->u_arg[1]);
 	/* callout_info */
 	tprints(", ");
-	printstr(tcp, tcp->u_arg[2], -1);
+	printstr(tcp, tcp->u_arg[2]);
 	/* keyring serial number */
 	tprints(", ");
 	print_keyring_serial_number(tcp->u_arg[3]);
@@ -97,7 +100,7 @@ keyctl_update_key(struct tcb *tcp, key_serial_t id, kernel_ulong_t addr,
 {
 	print_keyring_serial_number(id);
 	tprints(", ");
-	printstr(tcp, addr, len);
+	printstrn(tcp, addr, len);
 	tprintf(", %llu", zero_extend_signed_to_ull(len));
 }
 
@@ -136,9 +139,9 @@ keyctl_keyring_search(struct tcb *tcp, key_serial_t id1, kernel_ulong_t addr1,
 {
 	print_keyring_serial_number(id1);
 	tprints(", ");
-	printstr(tcp, addr1, -1);
+	printstr(tcp, addr1);
 	tprints(", ");
-	printstr(tcp, addr2, -1);
+	printstr(tcp, addr2);
 	tprints(", ");
 	print_keyring_serial_number(id2);
 }
@@ -158,7 +161,7 @@ keyctl_instantiate_key(struct tcb *tcp, key_serial_t id1, kernel_ulong_t addr,
 {
 	print_keyring_serial_number(id1);
 	tprints(", ");
-	printstr(tcp, addr, len);
+	printstrn(tcp, addr, len);
 	tprintf(", %llu, ", zero_extend_signed_to_ull(len));
 	print_keyring_serial_number(id2);
 }
@@ -245,22 +248,78 @@ print_dh_params(struct tcb *tcp, kernel_ulong_t addr)
 
 static void
 keyctl_dh_compute(struct tcb *tcp, kernel_ulong_t params, kernel_ulong_t buf,
-		  kernel_ulong_t len)
+		  kernel_ulong_t len, kernel_ulong_t kdf_addr)
 {
 	if (entering(tcp)) {
 		print_dh_params(tcp, params);
 		tprints(", ");
 	} else {
+		struct strace_keyctl_kdf_params kdf;
+
 		if (syserror(tcp)) {
 			printaddr(buf);
 		} else {
 			kernel_ulong_t rval = (tcp->u_rval >= 0) &&
 				((kernel_ulong_t) tcp->u_rval > len) ? len :
 				(kernel_ulong_t) tcp->u_rval;
-			printstr(tcp, buf, rval);
+			printstrn(tcp, buf, rval);
 		}
-		tprintf(", %llu", zero_extend_signed_to_ull(len));
+		tprintf(", %llu, ", zero_extend_signed_to_ull(len));
+
+		if (fetch_keyctl_kdf_params(tcp, kdf_addr, &kdf)) {
+			printaddr(kdf_addr);
+		} else {
+			size_t i;
+
+			PRINT_FIELD_STR("{", kdf, hashname, tcp);
+
+			/*
+			 * Kernel doesn't touch otherinfo
+			 * if otherinfolen is zero.
+			 */
+			if (kdf.otherinfolen)
+				PRINT_FIELD_STRN(", ", kdf, otherinfo,
+						 kdf.otherinfolen, tcp);
+			else
+				PRINT_FIELD_PTR(", ", kdf, otherinfo);
+
+			PRINT_FIELD_U(", ", kdf, otherinfolen);
+
+			/* Some future-proofing */
+			for (i = 0; i < ARRAY_SIZE(kdf.__spare); i++) {
+				if (kdf.__spare[i])
+					break;
+			}
+
+			if (i < ARRAY_SIZE(kdf.__spare)) {
+				tprints(", __spare=[");
+
+				for (i = 0; i < ARRAY_SIZE(kdf.__spare); i++) {
+					if (i)
+						tprints(", ");
+
+					tprintf("%#x", kdf.__spare[i]);
+				}
+
+				tprints("]");
+			}
+
+			tprints("}");
+		}
 	}
+}
+
+static void
+keyctl_restrict_keyring(struct tcb *const tcp,
+			const key_serial_t id,
+			const kernel_ulong_t addr1,
+			const kernel_ulong_t addr2)
+{
+	print_keyring_serial_number(id);
+	tprints(", ");
+	printstr(tcp, addr1);
+	tprints(", ");
+	printstr(tcp, addr2);
 }
 
 #include "xlat/key_reqkeys.h"
@@ -269,10 +328,10 @@ keyctl_dh_compute(struct tcb *tcp, kernel_ulong_t params, kernel_ulong_t buf,
 SYS_FUNC(keyctl)
 {
 	int cmd = tcp->u_arg[0];
-	unsigned long long arg2 = getarg_ull(tcp, 1);
-	unsigned long long arg3 = getarg_ull(tcp, 2);
-	unsigned long long arg4 = getarg_ull(tcp, 3);
-	unsigned long long arg5 = getarg_ull(tcp, 4);
+	kernel_ulong_t arg2 = tcp->u_arg[1];
+	kernel_ulong_t arg3 = tcp->u_arg[2];
+	kernel_ulong_t arg4 = tcp->u_arg[3];
+	kernel_ulong_t arg5 = tcp->u_arg[4];
 
 	if (entering(tcp)) {
 		printxval(keyctl_commands, cmd, "KEYCTL_???");
@@ -291,7 +350,7 @@ SYS_FUNC(keyctl)
 		break;
 
 	case KEYCTL_JOIN_SESSION_KEYRING:
-		printstr(tcp, arg2, -1);
+		printstr(tcp, arg2);
 		break;
 
 	case KEYCTL_UPDATE:
@@ -360,11 +419,17 @@ SYS_FUNC(keyctl)
 		break;
 
 	case KEYCTL_DH_COMPUTE:
-		keyctl_dh_compute(tcp, arg2, arg3, arg4);
+		keyctl_dh_compute(tcp, arg2, arg3, arg4, arg5);
 		return 0;
 
+	case KEYCTL_RESTRICT_KEYRING:
+		keyctl_restrict_keyring(tcp, arg2, arg3, arg4);
+		break;
+
 	default:
-		tprintf("%#llx, %#llx, %#llx, %#llx", arg2, arg3, arg4, arg5);
+		tprintf("%#" PRI_klx ", %#" PRI_klx
+			", %#" PRI_klx ", %#" PRI_klx,
+			arg2, arg3, arg4, arg5);
 		break;
 	}
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +32,7 @@
 
 SYS_FUNC(memfd_create)
 {
-	printstr(tcp, tcp->u_arg[0], -1);
+	printstr(tcp, tcp->u_arg[0]);
 	tprints(", ");
 	printflags(memfd_create_flags, tcp->u_arg[1], "MFD_???");
 

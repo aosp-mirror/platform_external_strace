@@ -5,6 +5,7 @@
  * Copyright (c) 2008-2013 Denys Vlasenko <vda.linux@googlemail.com>
  * Copyright (c) 2012 H.J. Lu <hongjiu.lu@intel.com>
  * Copyright (c) 2010-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,11 +31,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef X86_64
+# define X32_PERSONALITY_NUMBER 2
+#else
+# define X32_PERSONALITY_NUMBER 0
+#endif
+
 /* Return codes: 1 - ok, 0 - ignore, other - error. */
 static int
 arch_get_scno(struct tcb *tcp)
 {
-	long scno = 0;
+	kernel_ulong_t scno = 0;
 	unsigned int currpers;
 
 #ifndef __X32_SYSCALL_BIT
@@ -50,7 +57,7 @@ arch_get_scno(struct tcb *tcp)
 	 * solely by looking at __X32_SYSCALL_BIT:
 	 * arch/x86/include/asm/compat.h::is_x32_task():
 	 * if (task_pt_regs(current)->orig_ax & __X32_SYSCALL_BIT)
-	 *         return true;
+	 *	return true;
 	 */
 	if (x86_io.iov_len == sizeof(i386_regs)) {
 		scno = i386_regs.orig_eax;
@@ -86,7 +93,9 @@ arch_get_scno(struct tcb *tcp)
 	 */
 	scno = x86_64_regs.orig_rax;
 	switch (x86_64_regs.cs) {
-		case 0x23: currpers = 1; break;
+		case 0x23:
+			currpers = 1;
+			break;
 		case 0x33:
 			if (x86_64_regs.ds == 0x2b) {
 				currpers = 2;
@@ -116,9 +125,13 @@ arch_get_scno(struct tcb *tcp)
 		perror_msg("ptrace_peektext failed");
 	switch (call & 0xffff) {
 		/* x86-64: syscall = 0x0f 0x05 */
-		case 0x050f: currpers = 0; break;
+		case 0x050f:
+			currpers = 0;
+			break;
 		/* i386: int 0x80 = 0xcd 0x80 */
-		case 0x80cd: currpers = 1; break;
+		case 0x80cd:
+			currpers = 1;
+			break;
 		default:
 			currpers = current_personality;
 			error_msg("Unknown syscall opcode (0x%04X) while "
@@ -135,7 +148,7 @@ arch_get_scno(struct tcb *tcp)
 	 * Stracing of i386 apps is still supported.
 	 */
 	if (currpers == 0) {
-		error_msg("syscall_%lu(...) in unsupported "
+		error_msg("syscall_%" PRI_klu "(...) in unsupported "
 			  "64-bit mode of process PID=%d", scno, tcp->pid);
 		return 0;
 	}

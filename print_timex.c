@@ -3,6 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 2006-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +41,8 @@ typedef struct timex struct_timex;
 #include "xlat/adjtimex_modes.h"
 #include "xlat/adjtimex_status.h"
 
-MPERS_PRINTER_DECL(int, print_timex, struct tcb *tcp, const long addr)
+MPERS_PRINTER_DECL(int, print_timex,
+		   struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct_timex tx;
 
@@ -53,11 +55,10 @@ MPERS_PRINTER_DECL(int, print_timex, struct tcb *tcp, const long addr)
 		(intmax_t) tx.offset, (intmax_t) tx.freq,
 		(uintmax_t) tx.maxerror, (uintmax_t) tx.esterror);
 	printflags(adjtimex_status, tx.status, "STA_???");
-	tprintf(", constant=%jd, precision=%ju, tolerance=%jd",
+	tprintf(", constant=%jd, precision=%ju, tolerance=%jd, time=",
 		(intmax_t) tx.constant, (uintmax_t) tx.precision,
 		(intmax_t) tx.tolerance);
-	tprintf(", time={%jd, %jd}",
-		(intmax_t) tx.time.tv_sec, (intmax_t) tx.time.tv_usec);
+	MPERS_FUNC_NAME(print_struct_timeval)(&tx.time);
 	tprintf(", tick=%jd, ppsfreq=%jd, jitter=%jd",
 		(intmax_t) tx.tick, (intmax_t) tx.ppsfreq, (intmax_t) tx.jitter);
 	tprintf(", shift=%d, stabil=%jd, jitcnt=%jd",

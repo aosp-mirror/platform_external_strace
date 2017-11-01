@@ -5,6 +5,7 @@
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2005 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2007-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,7 +43,7 @@ SYS_FUNC(mount)
 	bool ignore_type = false;
 	bool ignore_data = false;
 	bool old_magic = false;
-	unsigned long flags = tcp->u_arg[3];
+	kernel_ulong_t flags = tcp->u_arg[3];
 
 	/* Discard magic */
 	if ((flags & MS_MGC_MSK) == MS_MGC_VAL) {
@@ -65,7 +66,7 @@ SYS_FUNC(mount)
 	if (ignore_type)
 		printaddr(tcp->u_arg[2]);
 	else
-		printstr(tcp, tcp->u_arg[2], -1);
+		printstr(tcp, tcp->u_arg[2]);
 	tprints(", ");
 
 	if (old_magic) {
@@ -74,13 +75,13 @@ SYS_FUNC(mount)
 			tprints("|");
 	}
 	if (flags || !old_magic)
-		printflags_long(mount_flags, flags, "MS_???");
+		printflags64(mount_flags, flags, "MS_???");
 	tprints(", ");
 
 	if (ignore_data)
 		printaddr(tcp->u_arg[4]);
 	else
-		printstr(tcp, tcp->u_arg[4], -1);
+		printstr(tcp, tcp->u_arg[4]);
 
 	return RVAL_DECODED;
 }

@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
  * Copyright (c) 2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +30,9 @@
 #ifndef STRACE_MPERS_TYPE_H
 #define STRACE_MPERS_TYPE_H
 
+#include "macros.h"
+
 #ifdef IN_MPERS
-# define STRINGIFY(a) #a
 # define DEF_MPERS_TYPE(args) STRINGIFY(args.h)
 # ifdef MPERS_IS_m32
 #  define MPERS_PREFIX m32_
@@ -47,6 +49,7 @@
 # else
 #  define MPERS_DEFS "native_defs.h"
 # endif
+typedef unsigned long mpers_ptr_t;
 #endif
 
 #endif /* !STRACE_MPERS_TYPE_H */

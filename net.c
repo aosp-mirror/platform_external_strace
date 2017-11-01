@@ -3,6 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-2000 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 1999-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +30,8 @@
  */
 
 #include "defs.h"
+#include "print_fields.h"
+
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -55,7 +58,7 @@
 #if defined(HAVE_LINUX_IP_VS_H)
 # include <linux/ip_vs.h>
 #endif
-#include <linux/netlink.h>
+#include "netlink.h"
 #if defined(HAVE_LINUX_NETFILTER_ARP_ARP_TABLES_H)
 # include <linux/netfilter_arp/arp_tables.h>
 #endif
@@ -81,42 +84,22 @@
 
 #include "xlat/inet_protocols.h"
 
-#if !defined NETLINK_SOCK_DIAG && defined NETLINK_INET_DIAG
-# define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
-#endif
-#include "xlat/netlink_protocols.h"
-
 #ifdef HAVE_BLUETOOTH_BLUETOOTH_H
 # include <bluetooth/bluetooth.h>
 # include "xlat/bt_protocols.h"
 #endif
 
-void
-print_ifindex(unsigned int ifindex)
-{
-#ifdef HAVE_IF_INDEXTONAME
-	char buf[IFNAMSIZ + 1];
-
-	if (if_indextoname(ifindex, buf)) {
-		tprints("if_nametoindex(");
-		print_quoted_string(buf, sizeof(buf), QUOTE_0_TERMINATED);
-		tprints(")");
-		return;
-	}
-#endif
-	tprintf("%u", ifindex);
-}
-
 static void
-decode_sockbuf(struct tcb *tcp, int fd, long addr, long addrlen)
+decode_sockbuf(struct tcb *const tcp, const int fd, const kernel_ulong_t addr,
+	       const kernel_ulong_t addrlen)
 {
 
 	switch (verbose(tcp) ? getfdproto(tcp, fd) : SOCK_PROTO_UNKNOWN) {
 	case SOCK_PROTO_NETLINK:
-		decode_netlink(tcp, addr, addrlen);
+		decode_netlink(tcp, fd, addr, addrlen);
 		break;
 	default:
-		printstr(tcp, addr, addrlen);
+		printstrn(tcp, addr, addrlen);
 	}
 }
 
@@ -162,36 +145,16 @@ SYS_FUNC(socket)
 #endif
 
 	default:
-		tprintf("%lu", tcp->u_arg[2]);
+		tprintf("%" PRI_klu, tcp->u_arg[2]);
 		break;
 	}
 
 	return RVAL_DECODED | RVAL_FD;
 }
 
-SYS_FUNC(bind)
-{
-	printfd(tcp, tcp->u_arg[0]);
-	tprints(", ");
-	const int addrlen = tcp->u_arg[2];
-	decode_sockaddr(tcp, tcp->u_arg[1], addrlen);
-	tprintf(", %d", addrlen);
-
-	return RVAL_DECODED;
-}
-
-SYS_FUNC(listen)
-{
-	printfd(tcp, tcp->u_arg[0]);
-	tprints(", ");
-	tprintf("%lu", tcp->u_arg[1]);
-
-	return RVAL_DECODED;
-}
-
 static bool
-fetch_socklen(struct tcb *tcp, int *plen,
-	      const unsigned long sockaddr, const unsigned long socklen)
+fetch_socklen(struct tcb *const tcp, int *const plen,
+	      const kernel_ulong_t sockaddr, const kernel_ulong_t socklen)
 {
 	return verbose(tcp) && sockaddr && socklen
 	       && umove(tcp, socklen, plen) == 0;
@@ -254,7 +217,7 @@ SYS_FUNC(send)
 	printfd(tcp, tcp->u_arg[0]);
 	tprints(", ");
 	decode_sockbuf(tcp, tcp->u_arg[0], tcp->u_arg[1], tcp->u_arg[2]);
-	tprintf(", %lu, ", tcp->u_arg[2]);
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[2]);
 	/* flags */
 	printflags(msg_flags, tcp->u_arg[3], "MSG_???");
 
@@ -266,7 +229,7 @@ SYS_FUNC(sendto)
 	printfd(tcp, tcp->u_arg[0]);
 	tprints(", ");
 	decode_sockbuf(tcp, tcp->u_arg[0], tcp->u_arg[1], tcp->u_arg[2]);
-	tprintf(", %lu, ", tcp->u_arg[2]);
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[2]);
 	/* flags */
 	printflags(msg_flags, tcp->u_arg[3], "MSG_???");
 	/* to address */
@@ -292,7 +255,7 @@ SYS_FUNC(recv)
 				     tcp->u_rval);
 		}
 
-		tprintf(", %lu, ", tcp->u_arg[2]);
+		tprintf(", %" PRI_klu ", ", tcp->u_arg[2]);
 		printflags(msg_flags, tcp->u_arg[3], "MSG_???");
 	}
 	return 0;
@@ -317,7 +280,7 @@ SYS_FUNC(recvfrom)
 				     tcp->u_rval);
 		}
 		/* size */
-		tprintf(", %lu, ", tcp->u_arg[2]);
+		tprintf(", %" PRI_klu ", ", tcp->u_arg[2]);
 		/* flags */
 		printflags(msg_flags, tcp->u_arg[3], "MSG_???");
 		tprints(", ");
@@ -350,17 +313,6 @@ SYS_FUNC(recvfrom)
 	return 0;
 }
 
-#include "xlat/shutdown_modes.h"
-
-SYS_FUNC(shutdown)
-{
-	printfd(tcp, tcp->u_arg[0]);
-	tprints(", ");
-	printxval(shutdown_modes, tcp->u_arg[1], "SHUT_???");
-
-	return RVAL_DECODED;
-}
-
 SYS_FUNC(getsockname)
 {
 	return decode_sockname(tcp);
@@ -377,7 +329,7 @@ printpair_fd(struct tcb *tcp, const int i0, const int i1)
 }
 
 static void
-decode_pair_fd(struct tcb *tcp, const long addr)
+decode_pair_fd(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	int pair[2];
 
@@ -422,7 +374,7 @@ SYS_FUNC(socketpair)
 		printxval(addrfams, tcp->u_arg[0], "AF_???");
 		tprints(", ");
 		tprint_sock_type(tcp->u_arg[1]);
-		tprintf(", %lu", tcp->u_arg[2]);
+		tprintf(", %" PRI_klu, tcp->u_arg[2]);
 	} else {
 		tprints(", ");
 		decode_pair_fd(tcp, tcp->u_arg[3]);
@@ -490,42 +442,80 @@ print_sockopt_fd_level_name(struct tcb *tcp, int fd, unsigned int level,
 }
 
 static void
-print_linger(struct tcb *tcp, long addr, int len)
+print_set_linger(struct tcb *const tcp, const kernel_ulong_t addr,
+		 const int len)
 {
 	struct linger linger;
 
-	if (len != sizeof(linger) ||
-	    umove(tcp, addr, &linger) < 0) {
+	if (len < (int) sizeof(linger)) {
+		printaddr(addr);
+	} else if (!umove_or_printaddr(tcp, addr, &linger)) {
+		PRINT_FIELD_D("{", linger, l_onoff);
+		PRINT_FIELD_D(", ", linger, l_linger);
+		tprints("}");
+	}
+}
+
+static void
+print_get_linger(struct tcb *const tcp, const kernel_ulong_t addr,
+		 unsigned int len)
+{
+	struct linger linger;
+
+	if (len < sizeof(linger)) {
+		if (len != sizeof(linger.l_onoff)) {
+			printstr_ex(tcp, addr, len, QUOTE_FORCE_HEX);
+			return;
+		}
+	} else {
+		len = sizeof(linger);
+	}
+
+	if (umoven(tcp, addr, len, &linger) < 0) {
 		printaddr(addr);
 		return;
 	}
 
-	tprintf("{onoff=%d, linger=%d}",
-		linger.l_onoff,
-		linger.l_linger);
+	PRINT_FIELD_D("{", linger, l_onoff);
+	if (len == sizeof(linger))
+		PRINT_FIELD_D(", ", linger, l_linger);
+	tprints("}");
 }
 
 #ifdef SO_PEERCRED
 static void
-print_ucred(struct tcb *tcp, long addr, int len)
+print_ucred(struct tcb *const tcp, const kernel_ulong_t addr, unsigned int len)
 {
 	struct ucred uc;
 
-	if (len != sizeof(uc) ||
-	    umove(tcp, addr, &uc) < 0) {
-		printaddr(addr);
+	if (len < sizeof(uc)) {
+		if (len != sizeof(uc.pid)
+		    && len != offsetofend(struct ucred, uid)) {
+			printstr_ex(tcp, addr, len, QUOTE_FORCE_HEX);
+			return;
+		}
 	} else {
-		tprintf("{pid=%u, uid=%u, gid=%u}",
-			(unsigned) uc.pid,
-			(unsigned) uc.uid,
-			(unsigned) uc.gid);
+		len = sizeof(uc);
 	}
+
+	if (umoven(tcp, addr, len, &uc) < 0) {
+		printaddr(addr);
+		return;
+	}
+
+	PRINT_FIELD_D("{", uc, pid);
+	if (len > sizeof(uc.pid))
+		PRINT_FIELD_UID(", ", uc, uid);
+	if (len == sizeof(uc))
+		PRINT_FIELD_UID(", ", uc, gid);
+	tprints("}");
 }
 #endif /* SO_PEERCRED */
 
 #ifdef PACKET_STATISTICS
 static void
-print_tpacket_stats(struct tcb *tcp, long addr, int len)
+print_tpacket_stats(struct tcb *const tcp, const kernel_ulong_t addr,
+		    const int len)
 {
 	struct tpacket_stats stats;
 
@@ -533,9 +523,9 @@ print_tpacket_stats(struct tcb *tcp, long addr, int len)
 	    umove(tcp, addr, &stats) < 0) {
 		printaddr(addr);
 	} else {
-		tprintf("{packets=%u, drops=%u}",
-			stats.tp_packets,
-			stats.tp_drops);
+		PRINT_FIELD_U("{", stats, tp_packets);
+		PRINT_FIELD_U("{", stats, tp_drops);
+		tprints("}");
 	}
 }
 #endif /* PACKET_STATISTICS */
@@ -543,7 +533,7 @@ print_tpacket_stats(struct tcb *tcp, long addr, int len)
 #include "xlat/icmpfilterflags.h"
 
 static void
-print_icmp_filter(struct tcb *tcp, const long addr, int len)
+print_icmp_filter(struct tcb *const tcp, const kernel_ulong_t addr, int len)
 {
 	struct icmp_filter filter = {};
 
@@ -563,21 +553,30 @@ print_icmp_filter(struct tcb *tcp, const long addr, int len)
 }
 
 static void
-print_getsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
-		 long addr, int len)
+print_getsockopt(struct tcb *const tcp, const unsigned int level,
+		 const unsigned int name, const kernel_ulong_t addr,
+		 const int len)
 {
 	if (addr && verbose(tcp))
 	switch (level) {
 	case SOL_SOCKET:
 		switch (name) {
 		case SO_LINGER:
-			print_linger(tcp, addr, len);
-			goto done;
+			print_get_linger(tcp, addr, len);
+			return;
 #ifdef SO_PEERCRED
 		case SO_PEERCRED:
 			print_ucred(tcp, addr, len);
-			goto done;
+			return;
 #endif
+#ifdef SO_ATTACH_FILTER
+		case SO_ATTACH_FILTER:
+			if (len && (unsigned short) len == (unsigned int) len)
+				print_sock_fprog(tcp, addr, len);
+			else
+				printaddr(addr);
+			return;
+#endif /* SO_ATTACH_FILTER */
 		}
 		break;
 
@@ -586,7 +585,7 @@ print_getsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 #ifdef PACKET_STATISTICS
 		case PACKET_STATISTICS:
 			print_tpacket_stats(tcp, addr, len);
-			goto done;
+			return;
 #endif
 		}
 		break;
@@ -595,7 +594,7 @@ print_getsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 		switch (name) {
 		case ICMP_FILTER:
 			print_icmp_filter(tcp, addr, len);
-			goto done;
+			return;
 		}
 		break;
 	}
@@ -606,30 +605,44 @@ print_getsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 		if (len == sizeof(int)) {
 			printnum_int(tcp, addr, "%d");
 		} else {
-			printstr(tcp, addr, len);
+			printstrn(tcp, addr, len);
 		}
 	} else {
 		printaddr(addr);
 	}
-done:
-	tprintf(", [%d]", len);
 }
 
 SYS_FUNC(getsockopt)
 {
+	int ulen, rlen;
+
 	if (entering(tcp)) {
 		print_sockopt_fd_level_name(tcp, tcp->u_arg[0],
 					    tcp->u_arg[1], tcp->u_arg[2], true);
-	} else {
-		int len;
 
-		if (syserror(tcp) || umove(tcp, tcp->u_arg[4], &len) < 0) {
+		if (verbose(tcp) && tcp->u_arg[4]
+		    && umove(tcp, tcp->u_arg[4], &ulen) == 0) {
+			set_tcb_priv_ulong(tcp, ulen);
+			return 0;
+		} else {
 			printaddr(tcp->u_arg[3]);
 			tprints(", ");
 			printaddr(tcp->u_arg[4]);
+			return RVAL_DECODED;
+		}
+	} else {
+		ulen = get_tcb_priv_ulong(tcp);
+
+		if (syserror(tcp) || umove(tcp, tcp->u_arg[4], &rlen) < 0) {
+			printaddr(tcp->u_arg[3]);
+			tprintf(", [%d]", ulen);
 		} else {
 			print_getsockopt(tcp, tcp->u_arg[1], tcp->u_arg[2],
-					 tcp->u_arg[3], len);
+					 tcp->u_arg[3], rlen);
+			if (ulen != rlen)
+				tprintf(", [%d->%d]", ulen, rlen);
+			else
+				tprintf(", [%d]", rlen);
 		}
 	}
 	return 0;
@@ -637,79 +650,41 @@ SYS_FUNC(getsockopt)
 
 #ifdef IP_ADD_MEMBERSHIP
 static void
-print_mreq(struct tcb *tcp, long addr, unsigned int len)
+print_mreq(struct tcb *const tcp, const kernel_ulong_t addr,
+	   const int len)
 {
 	struct ip_mreq mreq;
 
-	if (len < sizeof(mreq)) {
-		printstr(tcp, addr, len);
-		return;
+	if (len < (int) sizeof(mreq)) {
+		printaddr(addr);
+	} else if (!umove_or_printaddr(tcp, addr, &mreq)) {
+		PRINT_FIELD_INET4_ADDR("{", mreq, imr_multiaddr);
+		PRINT_FIELD_INET4_ADDR(", ", mreq, imr_interface);
+		tprints("}");
 	}
-	if (umove_or_printaddr(tcp, addr, &mreq))
-		return;
-
-	tprints("{imr_multiaddr=inet_addr(");
-	print_quoted_string(inet_ntoa(mreq.imr_multiaddr),
-			    16, QUOTE_0_TERMINATED);
-	tprints("), imr_interface=inet_addr(");
-	print_quoted_string(inet_ntoa(mreq.imr_interface),
-			    16, QUOTE_0_TERMINATED);
-	tprints(")}");
 }
 #endif /* IP_ADD_MEMBERSHIP */
 
 #ifdef IPV6_ADD_MEMBERSHIP
 static void
-print_mreq6(struct tcb *tcp, long addr, unsigned int len)
+print_mreq6(struct tcb *const tcp, const kernel_ulong_t addr,
+	    const int len)
 {
 	struct ipv6_mreq mreq;
 
-	if (len < sizeof(mreq))
-		goto fail;
-
-	if (umove_or_printaddr(tcp, addr, &mreq))
-		return;
-
-	const struct in6_addr *in6 = &mreq.ipv6mr_multiaddr;
-	char address[INET6_ADDRSTRLEN];
-
-	if (!inet_ntop(AF_INET6, in6, address, sizeof(address)))
-		goto fail;
-
-	tprints("{ipv6mr_multiaddr=inet_pton(");
-	print_quoted_string(address, sizeof(address), QUOTE_0_TERMINATED);
-	tprints("), ipv6mr_interface=");
-	print_ifindex(mreq.ipv6mr_interface);
-	tprints("}");
-	return;
-
-fail:
-	printstr(tcp, addr, len);
+	if (len < (int) sizeof(mreq)) {
+		printaddr(addr);
+	} else if (!umove_or_printaddr(tcp, addr, &mreq)) {
+		PRINT_FIELD_INET_ADDR("{", mreq, ipv6mr_multiaddr, AF_INET6);
+		PRINT_FIELD_IFINDEX(", ", mreq, ipv6mr_interface);
+		tprints("}");
+	}
 }
 #endif /* IPV6_ADD_MEMBERSHIP */
 
-#ifdef MCAST_JOIN_GROUP
-static void
-print_group_req(struct tcb *tcp, long addr, int len)
-{
-	struct group_req greq;
-
-	if (len != sizeof(greq) ||
-	    umove(tcp, addr, &greq) < 0) {
-		printaddr(addr);
-		return;
-	}
-
-	tprintf("{gr_interface=%u, gr_group=", greq.gr_interface);
-	print_sockaddr(tcp, &greq.gr_group, sizeof(greq.gr_group));
-	tprints("}");
-
-}
-#endif /* MCAST_JOIN_GROUP */
-
 #ifdef PACKET_RX_RING
 static void
-print_tpacket_req(struct tcb *tcp, long addr, int len)
+print_tpacket_req(struct tcb *const tcp, const kernel_ulong_t addr, const int len)
 {
 	struct tpacket_req req;
 
@@ -717,12 +692,11 @@ print_tpacket_req(struct tcb *tcp, long addr, int len)
 	    umove(tcp, addr, &req) < 0) {
 		printaddr(addr);
 	} else {
-		tprintf("{block_size=%u, block_nr=%u, "
-			"frame_size=%u, frame_nr=%u}",
-			req.tp_block_size,
-			req.tp_block_nr,
-			req.tp_frame_size,
-			req.tp_frame_nr);
+		PRINT_FIELD_U("{", req, tp_block_size);
+		PRINT_FIELD_U(", ", req, tp_block_nr);
+		PRINT_FIELD_U(", ", req, tp_frame_size);
+		PRINT_FIELD_U(", ", req, tp_frame_nr);
+		tprints("}");
 	}
 }
 #endif /* PACKET_RX_RING */
@@ -731,7 +705,7 @@ print_tpacket_req(struct tcb *tcp, long addr, int len)
 # include "xlat/packet_mreq_type.h"
 
 static void
-print_packet_mreq(struct tcb *tcp, long addr, int len)
+print_packet_mreq(struct tcb *const tcp, const kernel_ulong_t addr, const int len)
 {
 	struct packet_mreq mreq;
 
@@ -741,9 +715,11 @@ print_packet_mreq(struct tcb *tcp, long addr, int len)
 	} else {
 		unsigned int i;
 
-		tprintf("{mr_ifindex=%u, mr_type=", mreq.mr_ifindex);
-		printxval(packet_mreq_type, mreq.mr_type, "PACKET_MR_???");
-		tprintf(", mr_alen=%u, mr_address=", mreq.mr_alen);
+		PRINT_FIELD_IFINDEX("{", mreq, mr_ifindex);
+		PRINT_FIELD_XVAL(", ", mreq, mr_type, packet_mreq_type,
+				 "PACKET_MR_???");
+		PRINT_FIELD_U(", ", mreq, mr_alen);
+		tprints(", mr_address=");
 		if (mreq.mr_alen > ARRAY_SIZE(mreq.mr_address))
 			mreq.mr_alen = ARRAY_SIZE(mreq.mr_address);
 		for (i = 0; i < mreq.mr_alen; ++i)
@@ -754,16 +730,28 @@ print_packet_mreq(struct tcb *tcp, long addr, int len)
 #endif /* PACKET_ADD_MEMBERSHIP */
 
 static void
-print_setsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
-		 long addr, int len)
+print_setsockopt(struct tcb *const tcp, const unsigned int level,
+		 const unsigned int name, const kernel_ulong_t addr,
+		 const int len)
 {
 	if (addr && verbose(tcp))
 	switch (level) {
 	case SOL_SOCKET:
 		switch (name) {
 		case SO_LINGER:
-			print_linger(tcp, addr, len);
-			goto done;
+			print_set_linger(tcp, addr, len);
+			return;
+#ifdef SO_ATTACH_FILTER
+		case SO_ATTACH_FILTER:
+# ifdef SO_ATTACH_REUSEPORT_CBPF
+		case SO_ATTACH_REUSEPORT_CBPF:
+# endif
+			if ((unsigned int) len == get_sock_fprog_size())
+				decode_sock_fprog(tcp, addr);
+			else
+				printaddr(addr);
+			return;
+#endif /* SO_ATTACH_FILTER */
 		}
 		break;
 
@@ -773,13 +761,13 @@ print_setsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 		case IP_ADD_MEMBERSHIP:
 		case IP_DROP_MEMBERSHIP:
 			print_mreq(tcp, addr, len);
-			goto done;
+			return;
 #endif /* IP_ADD_MEMBERSHIP */
 #ifdef MCAST_JOIN_GROUP
 		case MCAST_JOIN_GROUP:
 		case MCAST_LEAVE_GROUP:
 			print_group_req(tcp, addr, len);
-			goto done;
+			return;
 #endif /* MCAST_JOIN_GROUP */
 		}
 		break;
@@ -796,8 +784,14 @@ print_setsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 		case IPV6_LEAVE_ANYCAST:
 # endif
 			print_mreq6(tcp, addr, len);
-			goto done;
+			return;
 #endif /* IPV6_ADD_MEMBERSHIP */
+#ifdef MCAST_JOIN_GROUP
+		case MCAST_JOIN_GROUP:
+		case MCAST_LEAVE_GROUP:
+			print_group_req(tcp, addr, len);
+			return;
+#endif /* MCAST_JOIN_GROUP */
 		}
 		break;
 
@@ -809,13 +803,13 @@ print_setsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 		case PACKET_TX_RING:
 # endif
 			print_tpacket_req(tcp, addr, len);
-			goto done;
+			return;
 #endif /* PACKET_RX_RING */
 #ifdef PACKET_ADD_MEMBERSHIP
 		case PACKET_ADD_MEMBERSHIP:
 		case PACKET_DROP_MEMBERSHIP:
 			print_packet_mreq(tcp, addr, len);
-			goto done;
+			return;
 #endif /* PACKET_ADD_MEMBERSHIP */
 		}
 		break;
@@ -824,7 +818,7 @@ print_setsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 		switch (name) {
 		case ICMP_FILTER:
 			print_icmp_filter(tcp, addr, len);
-			goto done;
+			return;
 		}
 		break;
 	}
@@ -835,13 +829,11 @@ print_setsockopt(struct tcb *tcp, unsigned int level, unsigned int name,
 		if (len == sizeof(int)) {
 			printnum_int(tcp, addr, "%d");
 		} else {
-			printstr(tcp, addr, len);
+			printstrn(tcp, addr, len);
 		}
 	} else {
 		printaddr(addr);
 	}
-done:
-	tprintf(", %d", len);
 }
 
 SYS_FUNC(setsockopt)
@@ -850,6 +842,7 @@ SYS_FUNC(setsockopt)
 				    tcp->u_arg[1], tcp->u_arg[2], false);
 	print_setsockopt(tcp, tcp->u_arg[1], tcp->u_arg[2],
 			 tcp->u_arg[3], tcp->u_arg[4]);
+	tprintf(", %d", (int) tcp->u_arg[4]);
 
 	return RVAL_DECODED;
 }

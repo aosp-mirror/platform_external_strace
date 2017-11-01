@@ -5,6 +5,7 @@
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2003-2006 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2006-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,15 +39,15 @@
 typedef struct msgbuf msgbuf_t;
 #include MPERS_DEFS
 
-MPERS_PRINTER_DECL(void, tprint_msgbuf,
-		   struct tcb *tcp, const long addr, const unsigned long count)
+MPERS_PRINTER_DECL(void, tprint_msgbuf, struct tcb *const tcp,
+		   const kernel_ulong_t addr, const kernel_ulong_t count)
 {
 	msgbuf_t msg;
 
 	if (!umove_or_printaddr(tcp, addr, &msg)) {
-		tprintf("{%lu, ", (long) msg.mtype);
-		printstr(tcp, addr + sizeof(msg.mtype), count);
+		tprintf("{%" PRI_kld ", ", (kernel_long_t) msg.mtype);
+		printstrn(tcp, addr + sizeof(msg.mtype), count);
 		tprints("}");
 	}
-	tprintf(", %lu, ", count);
+	tprintf(", %" PRI_klu ", ", count);
 }

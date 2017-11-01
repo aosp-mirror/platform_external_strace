@@ -3,6 +3,7 @@
  * Copyright (c) 2007-2008 Ulrich Drepper <drepper@redhat.com>
  * Copyright (c) 2009 Andreas Schwab <schwab@redhat.com>
  * Copyright (c) 2014-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,14 +44,15 @@
 
 SYS_FUNC(futex)
 {
-	const long uaddr = tcp->u_arg[0];
+	const kernel_ulong_t uaddr = tcp->u_arg[0];
 	const int op = tcp->u_arg[1];
 	const int cmd = op & 127;
-	const long timeout = tcp->u_arg[3];
-	const long uaddr2 = tcp->u_arg[4];
+	const kernel_ulong_t timeout = tcp->u_arg[3];
+	const kernel_ulong_t uaddr2 = tcp->u_arg[4];
 	const unsigned int val = tcp->u_arg[2];
 	const unsigned int val2 = tcp->u_arg[3];
 	const unsigned int val3 = tcp->u_arg[5];
+	const char *comment;
 
 	printaddr(uaddr);
 	tprints(", ");
@@ -91,13 +93,19 @@ SYS_FUNC(futex)
 		tprintf(", %u", val);
 		tprintf(", %u, ", val2);
 		printaddr(uaddr2);
-		tprints(", {");
+		tprints(", ");
 		if ((val3 >> 28) & 8)
-			tprints("FUTEX_OP_OPARG_SHIFT|");
-		printxval(futexwakeops, (val3 >> 28) & 0x7, "FUTEX_OP_???");
-		tprintf(", %u, ", (val3 >> 12) & 0xfff);
-		printxval(futexwakecmps, (val3 >> 24) & 0xf, "FUTEX_OP_CMP_???");
-		tprintf(", %u}", val3 & 0xfff);
+			tprints("FUTEX_OP_OPARG_SHIFT<<28|");
+		comment = printxval(futexwakeops, (val3 >> 28) & 0x7, NULL)
+			? NULL : "FUTEX_OP_???";
+		tprints("<<28");
+		tprints_comment(comment);
+		tprintf("|%#x<<12|", (val3 >> 12) & 0xfff);
+		comment = printxval(futexwakecmps, (val3 >> 24) & 0xf, NULL)
+			? NULL : "FUTEX_OP_CMP_???";
+		tprints("<<24");
+		tprints_comment(comment);
+		tprintf("|%#x", val3 & 0xfff);
 		break;
 	case FUTEX_WAIT_REQUEUE_PI:
 		tprintf(", %u", val);
@@ -115,7 +123,8 @@ SYS_FUNC(futex)
 		break;
 	default:
 		tprintf(", %u", val);
-		tprintf(", %#lx", timeout);
+		tprints(", ");
+		printaddr(timeout);
 		tprints(", ");
 		printaddr(uaddr2);
 		tprintf(", %#x", val3);

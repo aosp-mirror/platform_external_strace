@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
 # Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
+# Copyright (c) 2015-2017 The strace developers.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,14 +27,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-function compare_indices(i1, v1, i2, v2) {
+function compare_indices(i1, v1, i2, v2, \
+			 c1, c2)
+{
 	c1 = strtonum(sprintf("%s", i1))
 	c2 = strtonum(sprintf("%s", i2))
 	if (c1 < c2)
 		return -1
 	return (c1 != c2)
 }
-function array_get(array_idx, array_member, array_return)
+function array_get(array_idx, array_member, \
+		   array_return)
 {
 	array_return = array[array_idx][array_member]
 	if ("" == array_return) {
@@ -51,7 +55,8 @@ function array_seq(array_idx)
 	array[array_idx]["seq"] = index_seq
 	return index_seq
 }
-function enter(array_idx)
+function enter(array_idx,
+	       item)
 {
 	if (array_idx in called) {
 		printf("%s: index loop detected:", FILENAME) > "/dev/stderr"
@@ -67,8 +72,18 @@ function leave(array_idx, to_return)
 	delete called[array_idx]
 	return to_return
 }
-function what_is(what_idx, type_idx, special, item, \
-		 location, prev_location, prev_returned_size)
+function update_upper_bound(idx, val, \
+			    count)
+{
+	count = array[idx]["count"]
+	if (count == "")
+		count = 1
+	array[idx]["count"] = count * val
+	array[idx]["upper_bound"] = array[idx]["upper_bound"] "[" val "]"
+}
+function what_is(what_idx, \
+		 item, loc_diff, location, prev_location, prev_returned_size, \
+		 special, to_return, type_idx)
 {
 	enter(what_idx)
 	special = array_get(what_idx, "special")
@@ -102,8 +117,8 @@ function what_is(what_idx, type_idx, special, item, \
 		what_is(type_idx)
 		to_return = array[what_idx]["upper_bound"]
 		if ("" == to_return)
-			to_return = 0
-		returned_size = to_return * returned_size
+			to_return = "[0]"
+		returned_size = array[what_idx]["count"] * returned_size
 		return leave(what_idx, to_return)
 		break
 	case "structure_type":
@@ -125,11 +140,7 @@ function what_is(what_idx, type_idx, special, item, \
 				prev_location = location
 				returned = what_is(item)
 				prev_returned_size = returned_size
-				printf("%s", array[item]["name"])
-				if ("" != returned) {
-					printf("[%s]", returned)
-				}
-				print ";"
+				printf("%s%s;\n", array[item]["name"], returned)
 			}
 		}
 		returned_size = array_get(what_idx, "byte_size")
@@ -146,11 +157,7 @@ function what_is(what_idx, type_idx, special, item, \
 			if ("parent" in array[item] && \
 				array_get(item, "parent") == what_idx) {
 				returned = what_is(item)
-				printf("%s", array[item]["name"])
-				if ("" != returned) {
-					printf("[%s]", returned)
-				}
-				print ";"
+				printf("%s%s;\n", array[item]["name"], returned)
 			}
 		}
 		printf("} ")
@@ -207,11 +214,11 @@ BEGIN {
 }
 /^DW_AT_upper_bound/ {
 	match($0, /[[:digit:]]+/, temparray)
-	array[parent[level-1]]["upper_bound"] = temparray[0] + 1
+	update_upper_bound(parent[level - 1], temparray[0] + 1)
 }
 /^DW_AT_count/ {
 	match($0, /[[:digit:]]+/, temparray)
-	array[parent[level-1]]["upper_bound"] = temparray[0]
+	update_upper_bound(parent[level - 1], temparray[0])
 }
 /^Abbrev Number:[^(]+\(DW_TAG_/ {
 	if (match($0, /typedef|union_type|structure_type|pointer_type\

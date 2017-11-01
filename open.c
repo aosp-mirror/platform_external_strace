@@ -7,6 +7,7 @@
  * Copyright (c) 2006-2007 Ulrich Drepper <drepper@redhat.com>
  * Copyright (c) 2009-2013 Denys Vlasenko <dvlasenk@redhat.com>
  * Copyright (c) 2005-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,8 +37,12 @@
 
 #include <fcntl.h>
 
+/* some libcs are guilty of messing up with O_ACCMODE */
+#undef O_ACCMODE
+#define O_ACCMODE 03
+
 #ifdef O_LARGEFILE
-# if O_LARGEFILE == 0          /* biarch platforms in 64-bit mode */
+# if O_LARGEFILE == 0		/* biarch platforms in 64-bit mode */
 #  undef O_LARGEFILE
 #  ifdef SPARC64
 #   define O_LARGEFILE 0x40000
@@ -51,7 +56,7 @@
 #include "xlat/open_mode_flags.h"
 
 #ifndef AT_FDCWD
-# define AT_FDCWD                -100
+# define AT_FDCWD	-100
 #endif
 
 /* The fd is an "int", so when decoding x86 on x86_64, we need to force sign

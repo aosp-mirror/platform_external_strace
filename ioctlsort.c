@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2001 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2004-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 1999-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +34,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <linux/ioctl.h>
+
+#include "ioctl_iocdef.h"
 
 struct ioctlent {
 	const char *info;
@@ -54,7 +56,7 @@ is_prefix(const char *s1, const char *s2)
 }
 
 static int
-compare_name_info(const void* a, const void* b)
+compare_name_info(const void *a, const void *b)
 {
 	int rc;
 
@@ -91,7 +93,7 @@ code(const struct ioctlent *e)
 }
 
 static int
-compare_code_name(const void* a, const void* b)
+compare_code_name(const void *a, const void *b)
 {
 	unsigned int code1 = code((struct ioctlent *) a);
 	unsigned int code2 = code((struct ioctlent *) b);

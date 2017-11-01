@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,8 +52,8 @@ typedef struct_kernel_flock64 struct_flock64;
 	 && FLOCK_MEMBERS_EQ(type, l_len) \
 	 && FLOCK_MEMBERS_EQ(type, l_pid))
 
-MPERS_PRINTER_DECL(bool, fetch_struct_flock,
-		   struct tcb *tcp, const long addr, void *p)
+MPERS_PRINTER_DECL(bool, fetch_struct_flock, struct tcb *const tcp,
+		   const kernel_ulong_t addr, void *const p)
 {
 	struct_kernel_flock64 *pfl = p;
 	struct_flock mfl;
@@ -71,8 +72,8 @@ MPERS_PRINTER_DECL(bool, fetch_struct_flock,
 	return true;
 }
 
-MPERS_PRINTER_DECL(bool, fetch_struct_flock64,
-		   struct tcb *tcp, const long addr, void *p)
+MPERS_PRINTER_DECL(bool, fetch_struct_flock64, struct tcb *const tcp,
+		   const kernel_ulong_t addr, void *const p)
 {
 	struct_kernel_flock64 *pfl = p;
 	struct_flock64 mfl;

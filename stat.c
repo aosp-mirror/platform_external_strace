@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +30,7 @@
 #include "stat.h"
 
 static void
-decode_struct_stat(struct tcb *tcp, const unsigned long addr)
+decode_struct_stat(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct strace_stat st;
 

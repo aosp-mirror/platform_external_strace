@@ -2,6 +2,7 @@
  * Copyright (c) 1999 Ulrich Drepper <drepper@cygnus.com>
  * Copyright (c) 2005 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2005-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -154,7 +155,7 @@ SYS_FUNC(sysctl)
 		default:
 			goto out;
 		}
-	out:
+out:
 		max_cnt = info.nlen;
 		if (abbrev(tcp) && max_cnt > max_strlen)
 			max_cnt = max_strlen;
@@ -167,13 +168,13 @@ SYS_FUNC(sysctl)
 		size_t oldlen = 0;
 		if (info.oldval == NULL) {
 			tprints("NULL");
-		} else if (umove(tcp, (long)info.oldlenp, &oldlen) >= 0
+		} else if (umove(tcp, ptr_to_kulong(info.oldlenp), &oldlen) >= 0
 			   && info.nlen >= 2
 			   && ((name[0] == CTL_KERN
 				&& (name[1] == KERN_OSRELEASE
 				    || name[1] == KERN_OSTYPE
 					)))) {
-			printpath(tcp, (size_t)info.oldval);
+			printpath(tcp, ptr_to_kulong(info.oldval));
 		} else {
 			tprintf("%p", info.oldval);
 		}
@@ -183,7 +184,7 @@ SYS_FUNC(sysctl)
 		else if (syserror(tcp))
 			tprintf("%p", info.newval);
 		else
-			printpath(tcp, (size_t)info.newval);
+			printpath(tcp, ptr_to_kulong(info.newval));
 		tprintf(", %lu", (unsigned long)info.newlen);
 	}
 

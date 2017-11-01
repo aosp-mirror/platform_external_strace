@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 1999, 2001 Hewlett-Packard Co
- *	David Mosberger-Tang <davidm@hpl.hp.com>
+ *                          David Mosberger-Tang <davidm@hpl.hp.com>
+ * Copyright (c) 2000-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,16 +31,17 @@
  * IA-32 syscalls that have pointer arguments which are incompatible
  * with 64-bit layout get redirected to printargs.
  */
-#undef SYS_FUNC_NAME
-#define SYS_FUNC_NAME(syscall_name) printargs
-#include "../i386/syscallent.h"
-#undef SYS_FUNC_NAME
-#define SYS_FUNC_NAME(syscall_name) MPERS_FUNC_NAME(syscall_name)
+#if CST > 0
+# undef SYS_FUNC_NAME
+# define SYS_FUNC_NAME(syscall_name) printargs
+# include "../i386/syscallent.h"
+# undef SYS_FUNC_NAME
+# define SYS_FUNC_NAME(syscall_name) MPERS_FUNC_NAME(syscall_name)
+#endif
 
 /* You must be careful to check ../i386/syscallent.h so that this table
    starts where that one leaves off.
 */
-[(SYS_ipc_subcall + SYS_ipc_nsubcalls) ... 1023] = { },
 [1024] = { 0,	0,		SEN(printargs),			"ni_syscall"		},
 [1025] = { 1,	TP|SE,		SEN(exit),			"exit"			},
 [1026] = { 3,	TD,		SEN(read),			"read"			},
@@ -85,7 +87,7 @@
 [1066] = { 3,	TD,		SEN(fcntl),			"fcntl"			},
 [1067] = { 1,	NF,		SEN(umask),			"umask"			},
 [1068] = { 1,	TF,		SEN(chroot),			"chroot"		},
-[1069] = { 2,	0,		SEN(ustat),			"ustat"			},
+[1069] = { 2,	TSFA,		SEN(ustat),			"ustat"			},
 [1070] = { 2,	TD,		SEN(dup2),			"dup2"			},
 [1071] = { 2,	0,		SEN(setreuid),			"setreuid"		},
 [1072] = { 2,	0,		SEN(setregid),			"setregid"		},
@@ -119,8 +121,8 @@
 [1100] = { 3,	TD,		SEN(fchown),			"fchown"		},
 [1101] = { 2,	0,		SEN(getpriority),		"getpriority"		},
 [1102] = { 3,	0,		SEN(setpriority),		"setpriority"		},
-[1103] = { 2,	TF,		SEN(statfs),			"statfs"		},
-[1104] = { 2,	TD,		SEN(fstatfs),			"fstatfs"		},
+[1103] = { 2,	TF|TSF|TSFA,	SEN(statfs),			"statfs"		},
+[1104] = { 2,	TD|TFSF|TSFA,	SEN(fstatfs),			"fstatfs"		},
 [1105] = { 0,	NF,		SEN(gettid),			"gettid"		},
 [1106] = { 3,	TI,		SEN(semget),			"semget"		},
 [1107] = { 3,	TI,		SEN(semop),			"semop"			},
@@ -136,9 +138,9 @@
 [1117] = { 3,	0,		SEN(syslog),			"syslog"		},
 [1118] = { 3,	0,		SEN(setitimer),			"setitimer"		},
 [1119] = { 2,	0,		SEN(getitimer),			"getitimer"		},
-[1120] = { 2,	TF,		SEN(stat),			"stat"			},
-[1121] = { 2,	TF,		SEN(lstat),			"lstat"			},
-[1122] = { 2,	TD,		SEN(fstat),			"fstat"			},
+[1120] = { 2,	TF|TST|TSTA,	SEN(stat),			"stat"			},
+[1121] = { 2,	TF|TLST|TSTA,	SEN(lstat),			"lstat"			},
+[1122] = { 2,	TD|TFST|TSTA,	SEN(fstat),			"fstat"			},
 [1123] = { 0,	0,		SEN(vhangup),			"vhangup"		},
 [1124] = { 3,	TF,		SEN(chown),			"lchown"		},
 [1125] = { 5,	TM|SI,		SEN(remap_file_pages),		"remap_file_pages"	},
@@ -197,7 +199,7 @@
 [1178] = { 2,	TS,		SEN(rt_sigpending),		"rt_sigpending"		},
 [1179] = { 4,	TS,		SEN(rt_sigprocmask),		"rt_sigprocmask"	},
 [1180] = { 3,	TS,		SEN(rt_sigqueueinfo),		"rt_sigqueueinfo"	},
-[1181] = { 0,	TS,		SEN(sigreturn),			"rt_sigreturn"		},
+[1181] = { 0,	TS,		SEN(rt_sigreturn),		"rt_sigreturn"		},
 [1182] = { 2,	TS,		SEN(rt_sigsuspend),		"rt_sigsuspend"		},
 [1183] = { 4,	TS,		SEN(rt_sigtimedwait),		"rt_sigtimedwait"	},
 [1184] = { 2,	TF,		SEN(getcwd),			"getcwd"		},
@@ -226,9 +228,9 @@
 [1207] = { 2,	TF,		SEN(pivotroot),			"pivot_root"		},
 [1208] = { 3,	TM,		SEN(mincore),			"mincore"		},
 [1209] = { 3,	TM,		SEN(madvise),			"madvise"		},
-[1210] = { 2,	TF,		SEN(stat),			"stat"			},
-[1211] = { 2,	TF,		SEN(lstat),			"lstat"			},
-[1212] = { 2,	TD,		SEN(fstat),			"fstat"			},
+[1210] = { 2,	TF|TST|TSTA,	SEN(stat),			"stat"			},
+[1211] = { 2,	TF|TLST|TSTA,	SEN(lstat),			"lstat"			},
+[1212] = { 2,	TD|TFST|TSTA,	SEN(fstat),			"fstat"			},
 [1213] = { 6,	TP,		SEN(clone),			"clone2"		},
 [1214] = { 3,	TD,		SEN(getdents64),		"getdents64"		},
 [1215] = { 2,	0,		SEN(printargs),			"getunwind"		},
@@ -273,8 +275,8 @@
 [1254] = { 2,	0,		SEN(clock_gettime),		"clock_gettime"		},
 [1255] = { 2,	0,		SEN(clock_getres),		"clock_getres"		},
 [1256] = { 4,	0,		SEN(clock_nanosleep),		"clock_nanosleep"	},
-[1257] = { 3,	TD,		SEN(fstatfs64),			"fstatfs64"		},
-[1258] = { 3,	TF,		SEN(statfs64),			"statfs64"		},
+[1257] = { 3,	TD|TFSF|TSFA,	SEN(fstatfs64),			"fstatfs64"		},
+[1258] = { 3,	TF|TSF|TSFA,	SEN(statfs64),			"statfs64"		},
 [1259] = { 6,	TM,		SEN(mbind),			"mbind"			},
 [1260] = { 5,	TM,		SEN(get_mempolicy),		"get_mempolicy"		},
 [1261] = { 3,	TM,		SEN(set_mempolicy),		"set_mempolicy"		},
@@ -294,7 +296,7 @@
 [1275] = { 2,	0,		SEN(ioprio_get),		"ioprio_get"		},
 [1276] = { 6,	TM,		SEN(move_pages),		"move_pages"		},
 [1277] = { 0,	TD,		SEN(inotify_init),		"inotify_init"		},
-[1278] = { 3,	TD,		SEN(inotify_add_watch),		"inotify_add_watch"	},
+[1278] = { 3,	TD|TF,		SEN(inotify_add_watch),		"inotify_add_watch"	},
 [1279] = { 2,	TD,		SEN(inotify_rm_watch),		"inotify_rm_watch"	},
 [1280] = { 4,	TM,		SEN(migrate_pages),		"migrate_pages"		},
 [1281] = { 4,	TD|TF,		SEN(openat),			"openat"		},
@@ -302,7 +304,7 @@
 [1283] = { 4,	TD|TF,		SEN(mknodat),			"mknodat"		},
 [1284] = { 5,	TD|TF,		SEN(fchownat),			"fchownat"		},
 [1285] = { 3,	TD|TF,		SEN(futimesat),			"futimesat"		},
-[1286] = { 4,	TD|TF,		SEN(newfstatat),		"newfstatat"		},
+[1286] = { 4,	TD|TF|TFST|TSTA,SEN(newfstatat),		"newfstatat"		},
 [1287] = { 3,	TD|TF,		SEN(unlinkat),			"unlinkat"		},
 [1288] = { 4,	TD|TF,		SEN(renameat),			"renameat"		},
 [1289] = { 5,	TD|TF,		SEN(linkat),			"linkat"		},
@@ -355,12 +357,12 @@
 [1336] = { 3,	0,		SEN(sched_setattr),		"sched_setattr"		},
 [1337] = { 4,	0,		SEN(sched_getattr),		"sched_getattr"		},
 [1338] = { 5,	TD|TF,		SEN(renameat2),			"renameat2"		},
-[1339] = { 3,	0,		SEN(getrandom),			"getrandom",		},
-[1340] = { 2,	TD,		SEN(memfd_create),		"memfd_create",		},
-[1341] = { 3,	TD,		SEN(bpf),			"bpf",			},
-[1342] = { 5,	TD|TF|TP|SE|SI,	SEN(execveat),			"execveat",		},
-[1343] = { 1,	TD,		SEN(userfaultfd),		"userfaultfd",		},
-[1344] = { 2,	0,		SEN(membarrier),		"membarrier",		},
+[1339] = { 3,	0,		SEN(getrandom),			"getrandom"		},
+[1340] = { 2,	TD,		SEN(memfd_create),		"memfd_create"		},
+[1341] = { 3,	TD,		SEN(bpf),			"bpf"			},
+[1342] = { 5,	TD|TF|TP|SE|SI,	SEN(execveat),			"execveat"		},
+[1343] = { 1,	TD,		SEN(userfaultfd),		"userfaultfd"		},
+[1344] = { 2,	0,		SEN(membarrier),		"membarrier"		},
 [1345] = { 5,	0,		SEN(kcmp),			"kcmp"			},
 [1346] = { 3,	TM,		SEN(mlock2),			"mlock2"		},
 [1347] = { 6,	TD,		SEN(copy_file_range),		"copy_file_range"	},
