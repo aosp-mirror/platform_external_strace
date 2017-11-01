@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2009, 2010 Jeff Mahoney <jeffm@suse.com>
  * Copyright (c) 2011-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2011-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,8 +33,26 @@
 #include DEF_MPERS_TYPE(struct_blkpg_ioctl_arg)
 #include DEF_MPERS_TYPE(struct_blkpg_partition)
 
-#include <linux/blkpg.h>
+#include <linux/ioctl.h>
 #include <linux/fs.h>
+
+typedef struct {
+	int op;
+	int flags;
+	int datalen;
+	void *data;
+} struct_blkpg_ioctl_arg;
+
+#define BLKPG_DEVNAMELTH	64
+#define BLKPG_VOLNAMELTH	64
+typedef struct {
+	int64_t start;			/* starting offset in bytes */
+	int64_t length;			/* length in bytes */
+	int pno;			/* partition number */
+	char devname[BLKPG_DEVNAMELTH];	/* partition name, like sda5 or c0d1p2,
+					   to be used in kernel messages */
+	char volname[BLKPG_VOLNAMELTH];	/* volume label */
+} struct_blkpg_partition;
 
 #define BLKTRACE_BDEV_SIZE      32
 typedef struct blk_user_trace_setup {
@@ -46,10 +65,13 @@ typedef struct blk_user_trace_setup {
 	uint32_t pid;
 } struct_blk_user_trace_setup;
 
-typedef struct blkpg_ioctl_arg struct_blkpg_ioctl_arg;
-typedef struct blkpg_partition struct_blkpg_partition;
-
 #include MPERS_DEFS
+
+#include "print_fields.h"
+
+#ifndef BLKPG
+# define BLKPG      _IO(0x12, 105)
+#endif
 
 /*
  * ioctl numbers <= 114 are present in Linux 2.4.  The following ones have been
@@ -61,40 +83,40 @@ typedef struct blkpg_partition struct_blkpg_partition;
 # define BLKTRACESETUP _IOWR(0x12, 115, struct_blk_user_trace_setup)
 #endif
 #ifndef BLKTRACESTART
-# define BLKTRACESTART _IO(0x12,116)
+# define BLKTRACESTART _IO(0x12, 116)
 #endif
 #ifndef BLKTRACESTOP
-# define BLKTRACESTOP _IO(0x12,117)
+# define BLKTRACESTOP _IO(0x12, 117)
 #endif
 #ifndef BLKTRACETEARDOWN
-# define BLKTRACETEARDOWN _IO(0x12,118)
+# define BLKTRACETEARDOWN _IO(0x12, 118)
 #endif
 #ifndef BLKDISCARD
-# define BLKDISCARD _IO(0x12,119)
+# define BLKDISCARD _IO(0x12, 119)
 #endif
 #ifndef BLKIOMIN
-# define BLKIOMIN _IO(0x12,120)
+# define BLKIOMIN _IO(0x12, 120)
 #endif
 #ifndef BLKIOOPT
-# define BLKIOOPT _IO(0x12,121)
+# define BLKIOOPT _IO(0x12, 121)
 #endif
 #ifndef BLKALIGNOFF
-# define BLKALIGNOFF _IO(0x12,122)
+# define BLKALIGNOFF _IO(0x12, 122)
 #endif
 #ifndef BLKPBSZGET
-# define BLKPBSZGET _IO(0x12,123)
+# define BLKPBSZGET _IO(0x12, 123)
 #endif
 #ifndef BLKDISCARDZEROES
-# define BLKDISCARDZEROES _IO(0x12,124)
+# define BLKDISCARDZEROES _IO(0x12, 124)
 #endif
 #ifndef BLKSECDISCARD
-# define BLKSECDISCARD _IO(0x12,125)
+# define BLKSECDISCARD _IO(0x12, 125)
 #endif
 #ifndef BLKROTATIONAL
-# define BLKROTATIONAL _IO(0x12,126)
+# define BLKROTATIONAL _IO(0x12, 126)
 #endif
 #ifndef BLKZEROOUT
-# define BLKZEROOUT _IO(0x12,127)
+# define BLKZEROOUT _IO(0x12, 127)
 #endif
 
 #include "xlat/blkpg_ops.h"
@@ -104,33 +126,30 @@ print_blkpg_req(struct tcb *tcp, const struct_blkpg_ioctl_arg *blkpg)
 {
 	struct_blkpg_partition p;
 
-	tprints("{");
-	printxval(blkpg_ops, blkpg->op, "BLKPG_???");
+	PRINT_FIELD_XVAL("{", *blkpg, op, blkpg_ops, "BLKPG_???");
+	PRINT_FIELD_D(", ", *blkpg, flags);
+	PRINT_FIELD_D(", ", *blkpg, datalen);
 
-	tprintf(", flags=%d, datalen=%d, data=",
-		blkpg->flags, blkpg->datalen);
-
-	if (!umove_or_printaddr(tcp, (long) blkpg->data, &p)) {
-		tprintf("{start=%lld, length=%lld, pno=%d, devname=",
-			(long long) p.start, (long long) p.length, p.pno);
-		print_quoted_string(p.devname, sizeof(p.devname),
-				    QUOTE_0_TERMINATED);
-		tprints(", volname=");
-		print_quoted_string(p.volname, sizeof(p.volname),
-				    QUOTE_0_TERMINATED);
+	tprints(", data=");
+	if (!umove_or_printaddr(tcp, ptr_to_kulong(blkpg->data), &p)) {
+		PRINT_FIELD_D("{", p, start);
+		PRINT_FIELD_D(", ", p, length);
+		PRINT_FIELD_D(", ", p, pno);
+		PRINT_FIELD_CSTRING(", ", p, devname);
+		PRINT_FIELD_CSTRING(", ", p, volname);
 		tprints("}");
 	}
 	tprints("}");
 }
 
-MPERS_PRINTER_DECL(int, block_ioctl, struct tcb *tcp,
-		   const unsigned int code, const long arg)
+MPERS_PRINTER_DECL(int, block_ioctl, struct tcb *const tcp,
+		   const unsigned int code, const kernel_ulong_t arg)
 {
 	switch (code) {
 	/* take arg as a value, not as a pointer */
 	case BLKRASET:
 	case BLKFRASET:
-		tprintf(", %lu", arg);
+		tprintf(", %" PRI_klu, arg);
 		break;
 
 	/* return an unsigned short */
@@ -220,21 +239,18 @@ MPERS_PRINTER_DECL(int, block_ioctl, struct tcb *tcp,
 			tprints(", ");
 			if (umove_or_printaddr(tcp, arg, &buts))
 				break;
-			tprintf("{act_mask=%u, buf_size=%u, "
-				"buf_nr=%u, start_lba=%" PRIu64 ", "
-				"end_lba=%" PRIu64 ", pid=%u",
-				(unsigned)buts.act_mask, buts.buf_size,
-				buts.buf_nr, buts.start_lba,
-				buts.end_lba, buts.pid);
-			return 1;
+			PRINT_FIELD_U("{", buts, act_mask);
+			PRINT_FIELD_U(", ", buts, buf_size);
+			PRINT_FIELD_U(", ", buts, buf_nr);
+			PRINT_FIELD_U(", ", buts, start_lba);
+			PRINT_FIELD_U(", ", buts, end_lba);
+			PRINT_FIELD_U(", ", buts, pid);
+			return 0;
 		} else {
 			struct_blk_user_trace_setup buts;
 
-			if (!syserror(tcp) && !umove(tcp, arg, &buts)) {
-				tprints(", name=");
-				print_quoted_string(buts.name, sizeof(buts.name),
-						    QUOTE_0_TERMINATED);
-			}
+			if (!syserror(tcp) && !umove(tcp, arg, &buts))
+				PRINT_FIELD_CSTRING(", ", buts, name);
 			tprints("}");
 			break;
 		}
@@ -250,5 +266,5 @@ MPERS_PRINTER_DECL(int, block_ioctl, struct tcb *tcp,
 		return RVAL_DECODED;
 	}
 
-	return RVAL_DECODED | 1;
+	return RVAL_IOCTL_DECODED;
 }

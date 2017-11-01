@@ -5,6 +5,7 @@
  * Copyright (c) 2009 Andreas Schwab <schwab@redhat.com>
  * Copyright (c) 2009 Kirill A. Shutemov <kirill@shutemov.name>
  * Copyright (c) 2011-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,7 +43,7 @@ SYS_FUNC(fadvise64)
 
 	printfd(tcp, tcp->u_arg[0]);
 	argn = printllval(tcp, ", %lld", 1);
-	tprintf(", %llu, ", getarg_ull(tcp, argn++));
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[argn++]);
 	printxval(advise, tcp->u_arg[argn], "POSIX_FADV_???");
 
 	return RVAL_DECODED;

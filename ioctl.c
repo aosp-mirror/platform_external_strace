@@ -3,6 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-2001 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 1999-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,7 +43,7 @@
 static int
 compare(const void *a, const void *b)
 {
-	const unsigned int code1 = (const unsigned long) a;
+	const unsigned int code1 = (const uintptr_t) a;
 	const unsigned int code2 = ((struct_ioctlent *) b)->code;
 	return (code1 > code2) ? 1 : (code1 < code2) ? -1 : 0;
 }
@@ -52,7 +53,7 @@ ioctl_lookup(const unsigned int code)
 {
 	struct_ioctlent *iop;
 
-	iop = bsearch((const void *) (const unsigned long) code, ioctlent,
+	iop = bsearch((const void *) (const uintptr_t) code, ioctlent,
 			nioctlents, sizeof(ioctlent[0]), compare);
 	while (iop > ioctlent) {
 		iop--;
@@ -79,7 +80,7 @@ ioctl_print_code(const unsigned int code)
 {
 	tprints("_IOC(");
 	printflags(ioctl_dirs, _IOC_DIR(code), "_IOC_???");
-	tprintf(", 0x%02x, 0x%02x, 0x%02x)",
+	tprintf(", %#x, %#x, %#x)",
 		_IOC_TYPE(code), _IOC_NR(code), _IOC_SIZE(code));
 }
 
@@ -223,11 +224,38 @@ ioctl_decode_command_number(struct tcb *tcp)
 	}
 }
 
+/**
+ * Decode arg parameter of the ioctl call.
+ *
+ * @return There are two flags of the return value important for the purposes of
+ *         processing by SYS_FUNC(ioctl):
+ *          - RVAL_IOCTL_DECODED: indicates that ioctl decoder code
+ *                                has printed arg parameter;
+ *          - RVAL_DECODED: indicates that decoding is done.
+ *         As a result, the following behaviour is expected:
+ *          - on entering:
+ *            - 0: decoding should be continued on exiting;
+ *            - RVAL_IOCTL_DECODED: decoding on exiting is not needed
+ *                                  and decoder has printed arg value;
+ *            - RVAL_DECODED: decoding on exiting is not needed
+ *                            and generic handler should print arg value.
+ *          - on exiting:
+ *            - 0: generic handler should print arg value;
+ *            - RVAL_IOCTL_DECODED: decoder has printed arg value.
+ *
+ *         Note that it makes no sense to return just RVAL_DECODED on exiting,
+ *         but, of course, it is not prohibited (for example, it may be useful
+ *         in cases where the return path is common on entering and on exiting
+ *         the syscall).
+ *
+ *         SYS_FUNC(ioctl) converts RVAL_IOCTL_DECODED flag to RVAL_DECODED,
+ *         and passes all other bits of ioctl_decode return value unchanged.
+ */
 static int
 ioctl_decode(struct tcb *tcp)
 {
 	const unsigned int code = tcp->u_arg[1];
-	const long arg = tcp->u_arg[2];
+	const kernel_ulong_t arg = tcp->u_arg[2];
 
 	switch (_IOC_TYPE(code)) {
 #if defined(ALPHA) || defined(POWERPC)
@@ -255,10 +283,8 @@ ioctl_decode(struct tcb *tcp)
 		return block_ioctl(tcp, code, arg);
 	case 'X':
 		return fs_x_ioctl(tcp, code, arg);
-#ifdef HAVE_SCSI_SG_H
 	case 0x22:
 		return scsi_ioctl(tcp, code, arg);
-#endif
 	case 'L':
 		return loop_ioctl(tcp, code, arg);
 	case 'M':
@@ -281,6 +307,12 @@ ioctl_decode(struct tcb *tcp)
 #ifdef HAVE_LINUX_BTRFS_H
 	case 0x94:
 		return btrfs_ioctl(tcp, code, arg);
+#endif
+	case 0xb7:
+		return nsfs_ioctl(tcp, code, arg);
+#ifdef HAVE_LINUX_DM_IOCTL_H
+	case 0xfd:
+		return dm_ioctl(tcp, code, arg);
 #endif
 	default:
 		break;
@@ -314,16 +346,11 @@ SYS_FUNC(ioctl)
 		ret = ioctl_decode(tcp) | RVAL_DECODED;
 	}
 
-	if (ret & RVAL_DECODED) {
-		ret &= ~RVAL_DECODED;
-		if (ret)
-			--ret;
-		else
-			tprintf(", %#lx", tcp->u_arg[2]);
+	if (ret & RVAL_IOCTL_DECODED) {
+		ret &= ~RVAL_IOCTL_DECODED;
 		ret |= RVAL_DECODED;
-	} else {
-		if (ret)
-			--ret;
+	} else if (ret & RVAL_DECODED) {
+		tprintf(", %#" PRI_klx, tcp->u_arg[2]);
 	}
 
 	return ret;

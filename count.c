@@ -8,6 +8,7 @@
  *                    <barrow_dj@mail.yahoo.com,djbarrow@de.ibm.com>
  * Copyright (c) 2004 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2006 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2006-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,17 +54,16 @@ count_syscall(struct tcb *tcp, const struct timeval *syscall_exiting_tv)
 	struct timeval wtv;
 	struct timeval *tv = &wtv;
 	struct call_counts *cc;
-	unsigned long scno = tcp->scno;
 
-	if (!SCNO_IN_RANGE(scno))
+	if (!scno_in_range(tcp->scno))
 		return;
 
 	if (!counts)
 		counts = xcalloc(nsyscalls, sizeof(*counts));
-	cc = &counts[scno];
+	cc = &counts[tcp->scno];
 
 	cc->calls++;
-	if (tcp->u_error)
+	if (syserror(tcp))
 		cc->errors++;
 
 	/* tv = wall clock time spent while in syscall */
@@ -77,7 +77,7 @@ count_syscall(struct tcb *tcp, const struct timeval *syscall_exiting_tv)
 			/* Initialize it.  */
 			struct itimerval it;
 
-			memset(&it, 0, sizeof it);
+			memset(&it, 0, sizeof(it));
 			it.it_interval.tv_usec = 1;
 			setitimer(ITIMER_REAL, &it, NULL);
 			getitimer(ITIMER_REAL, &it);

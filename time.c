@@ -2,6 +2,7 @@
  * Copyright (c) 1991, 1992 Paul Kranenburg <pk@cs.few.eur.nl>
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
+ * Copyright (c) 1996-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +34,7 @@
 #include <sys/timex.h>
 
 static void
-print_timezone(struct tcb *tcp, const long addr)
+print_timezone(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct timezone tz;
 
@@ -167,11 +168,11 @@ SYS_FUNC(osf_setitimer)
 #include "xlat/adjtimex_state.h"
 
 static int
-do_adjtimex(struct tcb *tcp, long addr)
+do_adjtimex(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	if (print_timex(tcp, addr))
 		return 0;
-	tcp->auxstr = xlookup(adjtimex_state, (unsigned long) tcp->u_rval);
+	tcp->auxstr = xlookup(adjtimex_state, (kernel_ulong_t) tcp->u_rval);
 	if (tcp->auxstr)
 		return RVAL_STR;
 	return 0;
@@ -197,15 +198,14 @@ printclockname(int clockid)
 		if ((clockid & CLOCKFD_MASK) == CLOCKFD)
 			tprintf("FD_TO_CLOCKID(%d)", CLOCKID_TO_FD(clockid));
 		else {
-			if(CPUCLOCK_PERTHREAD(clockid))
+			if (CPUCLOCK_PERTHREAD(clockid))
 				tprintf("MAKE_THREAD_CPUCLOCK(%d,", CPUCLOCK_PID(clockid));
 			else
 				tprintf("MAKE_PROCESS_CPUCLOCK(%d,", CPUCLOCK_PID(clockid));
 			printxval(cpuclocknames, clockid & CLOCKFD_MASK, "CPUCLOCK_???");
 			tprints(")");
 		}
-	}
-	else
+	} else
 #endif
 		printxval(clocknames, clockid, "CLOCK_???");
 }

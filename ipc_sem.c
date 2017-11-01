@@ -5,6 +5,7 @@
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2003-2006 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2006-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,7 +58,8 @@ print_sembuf(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 #endif
 
 static void
-tprint_sembuf_array(struct tcb *tcp, const long addr, const unsigned int count)
+tprint_sembuf_array(struct tcb *const tcp, const kernel_ulong_t addr,
+		    const unsigned int count)
 {
 #if defined HAVE_SYS_SEM_H || defined HAVE_LINUX_SEM_H
 	struct sembuf sb;
@@ -125,7 +127,7 @@ SYS_FUNC(semctl)
 	   ) {
 		printnum_ptr(tcp, tcp->u_arg[3]);
 	} else {
-		tprintf("%#lx", tcp->u_arg[3]);
+		printaddr(tcp->u_arg[3]);
 	}
 	return RVAL_DECODED;
 }

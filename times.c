@@ -6,6 +6,7 @@
  * Copyright (c) 2012 H.J. Lu <hongjiu.lu@intel.com>
  * Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
  * Copyright (c) 2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,10 +54,5 @@ SYS_FUNC(times)
 			zero_extend_signed_to_ull(tbuf.tms_cstime));
 	}
 
-	return syserror(tcp) ? RVAL_DECIMAL :
-#if defined(RVAL_LUDECIMAL) && !defined(IN_MPERS)
-			       RVAL_LUDECIMAL;
-#else
-			       RVAL_UDECIMAL;
-#endif
+	return syserror(tcp) ? RVAL_DECIMAL : RVAL_UDECIMAL;
 }

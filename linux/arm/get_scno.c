@@ -2,6 +2,7 @@
  * Copyright (c) 2003 Russell King <rmk@arm.linux.org.uk>
  * Copyright (c) 2011-2013 Denys Vlasenko <vda.linux@googlemail.com>
  * Copyright (c) 2011-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +32,7 @@
 static int
 arch_get_scno(struct tcb *tcp)
 {
-	long scno = 0;
+	kernel_ulong_t scno = 0;
 
 	/* Note: we support only 32-bit CPUs, not 26-bit */
 
@@ -47,7 +48,7 @@ arch_get_scno(struct tcb *tcp)
 	if (errno)
 		return -1;
 	/* EABI syscall convention? */
-	if ((unsigned long) scno != 0xef000000) {
+	if (scno != 0xef000000) {
 		/* No, it's OABI */
 		if ((scno & 0x0ff00000) != 0x0f900000) {
 			error_msg("pid %d unknown syscall trap 0x%08lx",
@@ -57,7 +58,7 @@ arch_get_scno(struct tcb *tcp)
 		/* Fixup the syscall number */
 		scno &= 0x000fffff;
 	} else {
-	scno_in_r7:
+scno_in_r7:
 		scno = arm_regs.ARM_r7;
 	}
 #else /* __ARM_EABI__ || !ENABLE_ARM_OABI */
@@ -72,7 +73,7 @@ arch_get_scno(struct tcb *tcp)
 	 * Do some sanity checks to figure out
 	 * whether it's really a syscall entry.
 	 */
-	if (arm_regs.ARM_ip && !SCNO_IN_RANGE(scno)) {
+	if (arm_regs.ARM_ip && !scno_in_range(scno)) {
 		if (debug_flag)
 			error_msg("pid %d stray syscall exit:"
 				  " ARM_ip = %ld, scno = %ld",

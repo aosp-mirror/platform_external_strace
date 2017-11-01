@@ -5,6 +5,7 @@
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2003-2006 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2006-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +52,7 @@ typedef struct msqid64_ds msqid_ds_t;
 #include "xlat/msgctl_flags.h"
 
 static void
-print_msqid_ds(struct tcb *tcp, const long addr, int cmd)
+print_msqid_ds(struct tcb *const tcp, const kernel_ulong_t addr, int cmd)
 {
 	/* TODO: We don't properly decode old compat ipc calls. */
 	if (cmd & IPC_64)
@@ -101,7 +102,7 @@ SYS_FUNC(msgctl)
 		PRINTCTL(msgctl_flags, tcp->u_arg[1], "MSG_???");
 		tprints(", ");
 	} else {
-		const long addr = tcp->u_arg[indirect_ipccall(tcp) ? 3 : 2];
+		const kernel_ulong_t addr = tcp->u_arg[indirect_ipccall(tcp) ? 3 : 2];
 		print_msqid_ds(tcp, addr, tcp->u_arg[1]);
 	}
 	return 0;

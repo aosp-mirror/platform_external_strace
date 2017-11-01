@@ -6,6 +6,7 @@
  * Copyright (c) 2006 Ulrich Drepper <drepper@redhat.com>
  * Copyright (c) 2006 Bernhard Kaindl <bk@suse.de>
  * Copyright (c) 2006-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +36,6 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
 
 static void
 decode_mknod(struct tcb *tcp, int offset)
@@ -50,7 +50,8 @@ decode_mknod(struct tcb *tcp, int offset)
 	case S_IFCHR:
 	case S_IFBLK:
 		dev = tcp->u_arg[offset + 2];
-		tprintf(", makedev(%u, %u)", major(dev), minor(dev));
+		tprints(", ");
+		print_dev_t(dev);
 		break;
 	}
 }

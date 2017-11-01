@@ -5,6 +5,7 @@
 # Copyright (c) 2006-2016 Dmitry V. Levin <ldv@altlinux.org>
 # Copyright (c) 2008-2015 Mike Frysinger <vapier@gentoo.org>
 # Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
+# Copyright (c) 2002-2017 The strace developers.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -32,11 +33,16 @@
 AC_PREREQ(2.57)
 AC_INIT([strace],
 	m4_esyscmd([./git-version-gen .tarball-version]),
-	[strace-devel@lists.sourceforge.net])
+	[strace-devel@lists.sourceforge.net],
+	[strace],
+	[https://strace.io])
+m4_define([copyright_year], m4_esyscmd([./copyright-year-gen .year]))
+m4_define([manpage_date], m4_esyscmd([./file-date-gen strace.1.in]))
+AC_COPYRIGHT([Copyright (c) 1999-]copyright_year[ The strace developers.])
 AC_CONFIG_SRCDIR([strace.c])
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([foreign nostdinc dist-xz silent-rules parallel-tests])
+AM_INIT_AUTOMAKE([foreign nostdinc dist-xz silent-rules parallel-tests 1.13])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 
@@ -47,12 +53,19 @@ AC_SUBST(DEB_CHANGELOGTIME)
 
 AC_PROG_CC
 AC_PROG_CPP
+st_WARN_CFLAGS
 AX_PROG_CC_FOR_BUILD
 AC_PROG_INSTALL
 AC_PROG_RANLIB
 
 AC_USE_SYSTEM_EXTENSIONS
 AX_CODE_COVERAGE
+
+AC_DEFINE([COPYRIGHT_YEAR], "[copyright_year]", [Current copyright year.])
+AC_SUBST([COPYRIGHT_YEAR], [copyright_year])
+
+AC_DEFINE([MANPAGE_DATE], "[manpage_date]", [Date])
+AC_SUBST([MANPAGE_DATE], [manpage_date])
 
 AC_MSG_CHECKING([for supported architecture])
 arch_m32=
@@ -210,29 +223,26 @@ AC_SUBST(arch_mx32)
 MIPS_ABI=
 if test "$arch" = mips; then
 	AC_CACHE_CHECK([for _MIPS_SIM], [st_cv__MIPS_SIM],
-		       [AC_COMPUTE_INT([st_cv__MIPS_SIM], [_MIPS_SIM],
-				       [#include <sgidefs.h>],
+		       [AC_COMPUTE_INT([st_cv__MIPS_SIM], [_MIPS_SIM], ,
 				       [AC_MSG_ERROR([_MIPS_SIM cannot be determined])])])
 
+	# requires GCC >= 3.4
 	AC_CACHE_CHECK([for MIPS ABI], [st_cv_mips_abi],
 		[AC_COMPILE_IFELSE(
-			[AC_LANG_PROGRAM([[#include <sgidefs.h>]],
-					 [[int i[_MIPS_SIM == _MIPS_SIM_ABI32 ? 1 : - 1];]])],
+			[AC_LANG_PROGRAM(, [[int i[_MIPS_SIM == _ABIO32 ? 1 : - 1];]])],
 			[st_cv_mips_abi=o32],
 		[AC_COMPILE_IFELSE(
-			[AC_LANG_PROGRAM([[#include <sgidefs.h>]],
-					 [[int i[_MIPS_SIM == _MIPS_SIM_NABI32 ? 1 : - 1];]])],
+			[AC_LANG_PROGRAM(, [[int i[_MIPS_SIM == _ABIN32 ? 1 : - 1];]])],
 			[st_cv_mips_abi=n32],
 		[AC_COMPILE_IFELSE(
-			[AC_LANG_PROGRAM([[#include <sgidefs.h>]],
-					 [[int i[_MIPS_SIM == _MIPS_SIM_ABI64 ? 1 : - 1];]])],
+			[AC_LANG_PROGRAM(, [[int i[_MIPS_SIM == _ABI64 ? 1 : - 1];]])],
 			[st_cv_mips_abi=n64],
 			[st_cv_mips_abi=unknown])])])])
 
 	case "$st_cv_mips_abi" in
-		o32) AC_DEFINE([LINUX_MIPSO32], [1], [Define for _MIPS_SIM_ABI32.]);;
-		n32) AC_DEFINE([LINUX_MIPSN32], [1], [Define for _MIPS_SIM_NABI32.]);;
-		n64) AC_DEFINE([LINUX_MIPSN64], [1], [Define for _MIPS_SIM_ABI64.]);;
+		o32) AC_DEFINE([LINUX_MIPSO32], [1], [Define for _ABIO32.]);;
+		n32) AC_DEFINE([LINUX_MIPSN32], [1], [Define for _ABIN32.]);;
+		n64) AC_DEFINE([LINUX_MIPSN64], [1], [Define for _ABI64.]);;
 		*) AC_MSG_ERROR([Unsupported _MIPS_SIM]);;
 	esac
 	MIPS_ABI="$st_cv_mips_abi"
@@ -251,29 +261,6 @@ esac
 AC_DEFINE_UNQUOTED([ENABLE_ARM_OABI], [$enable_arm_oabi],
 		   [Define to 1 if you want OABI support on ARM EABI.])
 
-gl_WARN_ADD([-Wall])
-gl_WARN_ADD([-Wempty-body])
-gl_WARN_ADD([-Wformat-security])
-gl_WARN_ADD([-Wignored-qualifiers])
-gl_WARN_ADD([-Winit-self])
-gl_WARN_ADD([-Wlogical-op])
-gl_WARN_ADD([-Wmissing-parameter-type])
-gl_WARN_ADD([-Wnested-externs])
-gl_WARN_ADD([-Wold-style-declaration])
-gl_WARN_ADD([-Wold-style-definition])
-gl_WARN_ADD([-Wsign-compare])
-gl_WARN_ADD([-Wtype-limits])
-gl_WARN_ADD([-Wwrite-strings])
-AC_ARG_ENABLE([gcc-Werror],
-  [AS_HELP_STRING([--enable-gcc-Werror], [turn on gcc's -Werror option])],
-  [case $enableval in
-     yes) gl_WARN_ADD([-Werror]) ;;
-     no)  ;;
-     *)   AC_MSG_ERROR([bad value $enableval for gcc-Werror option]) ;;
-   esac]
-)
-AC_SUBST([WARN_CFLAGS])
-
 AC_C_BIGENDIAN
 AC_C_TYPEOF
 
@@ -281,6 +268,7 @@ AC_TYPE_UID_T
 
 AC_CHECK_FUNCS(m4_normalize([
 	accept4
+	be64toh
 	fallocate
 	fanotify_mark
 	fopen64
@@ -291,7 +279,6 @@ AC_CHECK_FUNCS(m4_normalize([
 	futimens
 	if_indextoname
 	open64
-	pipe2
 	prctl
 	preadv
 	process_vm_readv
@@ -300,6 +287,7 @@ AC_CHECK_FUNCS(m4_normalize([
 	signalfd
 	stpcpy
 	strerror
+	strndup
 	strsignal
 	sync_file_range
 	utimensat
@@ -316,11 +304,11 @@ AC_CHECK_TYPES([struct stat64, struct __old_kernel_stat],,,
 [#include <sys/types.h>
 #include <asm/stat.h>])
 
+AC_CHECK_TYPES([struct user_desc],,, [#include <asm/ldt.h>])
+
 AC_CHECK_MEMBERS([struct stat.st_mtime_nsec, struct stat64.st_mtime_nsec],,,
 [#include <sys/types.h>
 #include <asm/stat.h>])
-
-AC_CHECK_MEMBERS([struct stat.st_mtim.tv_nsec])
 
 AC_CHECK_TYPES(m4_normalize([
 	struct pt_all_user_regs,
@@ -337,6 +325,18 @@ AC_CHECK_TYPES(m4_normalize([
 [#include <sys/types.h>
 #include <linux/fcntl.h>])
 
+AC_CHECK_TYPES(m4_normalize([
+	struct crypto_report_aead,
+	struct crypto_report_blkcipher,
+	struct crypto_report_cipher,
+	struct crypto_report_hash,
+	struct crypto_report_rng
+]),,, [#include <linux/cryptouser.h>])
+
+AC_CHECK_TYPES(m4_normalize([
+	struct keyctl_kdf_params
+]),,, [#include <linux/keyctl.h>])
+
 AC_CHECK_MEMBERS([struct timex.tai],,, [#include <sys/timex.h>])
 
 AC_CHECK_MEMBERS([struct utsname.domainname],,, [#include <sys/utsname.h>])
@@ -347,6 +347,30 @@ AC_CHECK_MEMBERS(m4_normalize([
 	siginfo_t.si_overrun
 ]),,, [#include <signal.h>])
 
+AC_CHECK_MEMBERS(m4_normalize([
+	struct perf_event_attr.precise_ip,
+	struct perf_event_attr.mmap_data,
+	struct perf_event_attr.sample_id_all,
+	struct perf_event_attr.exclude_host,
+	struct perf_event_attr.exclude_guest,
+	struct perf_event_attr.exclude_callchain_kernel,
+	struct perf_event_attr.exclude_callchain_user,
+	struct perf_event_attr.mmap2,
+	struct perf_event_attr.comm_exec,
+	struct perf_event_attr.use_clockid,
+	struct perf_event_attr.context_switch,
+	struct perf_event_attr.write_backward,
+	struct perf_event_attr.bp_type,
+	struct perf_event_attr.config1,
+	struct perf_event_attr.config2,
+	struct perf_event_attr.branch_sample_type,
+	struct perf_event_attr.sample_regs_user,
+	struct perf_event_attr.sample_stack_user,
+	struct perf_event_attr.sample_regs_intr,
+	struct perf_event_attr.aux_watermark,
+	struct perf_event_attr.sample_max_stack
+]),,, [#include <linux/perf_event.h>])
+
 AC_CHECK_HEADERS(m4_normalize([
 	asm/cachectl.h
 	asm/sysmips.h
@@ -354,15 +378,23 @@ AC_CHECK_HEADERS(m4_normalize([
 	elf.h
 	inttypes.h
 	linux/bsg.h
+	linux/cryptouser.h
+	linux/dm-ioctl.h
 	linux/dqblk_xfs.h
 	linux/falloc.h
+	linux/fib_rules.h
 	linux/fiemap.h
-	linux/filter.h
+	linux/genetlink.h
 	linux/hiddev.h
+	linux/if_addr.h
+	linux/if_link.h
 	linux/ip_vs.h
 	linux/ipc.h
 	linux/mmtimer.h
 	linux/msg.h
+	linux/neighbour.h
+	linux/netfilter/nfnetlink.h
+	linux/nsfs.h
 	linux/perf_event.h
 	linux/quota.h
 	linux/seccomp.h
@@ -387,6 +419,7 @@ AC_CHECK_HEADERS(m4_normalize([
 	sys/shm.h
 	sys/signalfd.h
 	sys/xattr.h
+	ustat.h
 ]))
 
 AC_CHECK_HEADERS([asm/sigcontext.h],,, [#include <signal.h>])
@@ -408,39 +441,59 @@ AC_CHECK_HEADERS([linux/input.h], [
 ])
 
 AC_CHECK_HEADERS([linux/bpf.h], [
-	AC_CACHE_CHECK([whether union bpf_attr.log_buf initialization works],
-		       [st_cv_have_union_bpf_attr_log_buf],
-		[AC_COMPILE_IFELSE(
-			[AC_LANG_PROGRAM([[#include <linux/bpf.h>]],
-					 [[union bpf_attr a = { .log_buf = 0 };]])],
-			[st_cv_have_union_bpf_attr_log_buf=yes],
-			[st_cv_have_union_bpf_attr_log_buf=no])])
-	if test $st_cv_have_union_bpf_attr_log_buf = yes; then
-		AC_DEFINE(HAVE_UNION_BPF_ATTR_LOG_BUF, [1],
-			  [Define to 1 if union bpf_attr.log_buf initialization works])
-	fi
+	st_CHECK_UNION_BPF_ATTR([attach_flags])
+	st_CHECK_UNION_BPF_ATTR([bpf_fd])
+	st_CHECK_UNION_BPF_ATTR([flags])
+	st_CHECK_UNION_BPF_ATTR([inner_map_fd])
+	st_CHECK_UNION_BPF_ATTR([prog_flags])
 ])
 
+AC_CHECK_TYPES([struct br_port_msg],,, [#include <linux/if_bridge.h>])
+AC_CHECK_TYPES([struct dcbmsg],,, [#include <linux/dcbnl.h>])
+AC_CHECK_TYPES([struct ifaddrlblmsg],,, [#include <linux/if_addrlabel.h>])
+AC_CHECK_TYPES([struct netconfmsg],,, [#include <linux/netconf.h>])
+
+AC_CHECK_TYPES(m4_normalize([
+	struct rta_mfc_stats,
+	struct rtvia
+]),,, [#include <linux/rtnetlink.h>])
+
+AC_CHECK_MEMBERS([struct ndt_stats.ndts_table_fulls],,, [#include <linux/neighbour.h>])
+AC_CHECK_TYPES(m4_normalize([
+	struct ndt_config,
+	struct ndt_stats
+]),,, [#include <linux/neighbour.h>])
+
+AC_CHECK_TYPES(m4_normalize([
+	struct ifla_bridge_id,
+	struct ifla_port_vsi,
+	struct rtnl_link_stats64
+]),,, [#include <linux/if_link.h>])
+AC_CHECK_MEMBERS(m4_normalize([
+	struct rtnl_link_stats.rx_nohandler,
+	struct rtnl_link_stats64.rx_nohandler
+]),,, [#include <linux/if_link.h>])
+
+AC_CHECK_TYPES([struct fib_rule_uid_range],,, [#include <linux/fib_rules.h>])
+
 AC_CHECK_TYPES([struct statfs], [
-	AC_CHECK_MEMBERS([struct statfs.f_frsize],,, [#include <linux/types.h>
-#include <asm/statfs.h>])
-	AC_CHECK_MEMBERS([struct statfs.f_flags],,, [#include <linux/types.h>
-#include <asm/statfs.h>])
-	AC_CHECK_MEMBERS([struct statfs.f_fsid.val],,, [#include <linux/types.h>
-#include <asm/statfs.h>])
-	AC_CHECK_MEMBERS([struct statfs.f_fsid.__val],,, [#include <linux/types.h>
+	AC_CHECK_MEMBERS(m4_normalize([
+		struct statfs.f_frsize,
+		struct statfs.f_flags,
+		struct statfs.f_fsid.val,
+		struct statfs.f_fsid.__val
+	]),,, [#include <linux/types.h>
 #include <asm/statfs.h>])
 ],, [#include <linux/types.h>
 #include <asm/statfs.h>])
 
 AC_CHECK_TYPES([struct statfs64], [
-	AC_CHECK_MEMBERS([struct statfs64.f_frsize],,, [#include <linux/types.h>
-#include <asm/statfs.h>])
-	AC_CHECK_MEMBERS([struct statfs64.f_flags],,, [#include <linux/types.h>
-#include <asm/statfs.h>])
-	AC_CHECK_MEMBERS([struct statfs64.f_fsid.val],,, [#include <linux/types.h>
-#include <asm/statfs.h>])
-	AC_CHECK_MEMBERS([struct statfs64.f_fsid.__val],,, [#include <linux/types.h>
+	AC_CHECK_MEMBERS(m4_normalize([
+		struct statfs64.f_frsize,
+		struct statfs64.f_flags,
+		struct statfs64.f_fsid.val,
+		struct statfs64.f_fsid.__val
+	]),,, [#include <linux/types.h>
 #include <asm/statfs.h>])
 ],, [#include <linux/types.h>
 #include <asm/statfs.h>])
@@ -455,8 +508,8 @@ AC_CHECK_HEADERS([linux/btrfs.h], [
 		struct btrfs_ioctl_search_args_v2.buf_size
 		]),,, [ #include <stdio.h>
 #include <linux/btrfs.h>])
-        AC_CHECK_DECLS(m4_normalize([BTRFS_COMPRESS_NONE, BTRFS_COMPRESS_ZLIB,
-	                        BTRFS_COMPRESS_LZO]),,,[ #include <stdio.h>
+	AC_CHECK_DECLS(m4_normalize([BTRFS_COMPRESS_NONE, BTRFS_COMPRESS_ZLIB,
+				BTRFS_COMPRESS_LZO]),,,[ #include <stdio.h>
 #include <linux/btrfs.h>])])
 
 AC_CHECK_DECLS([sys_errlist])
@@ -479,8 +532,10 @@ AC_CHECK_DECLS(m4_normalize([
 
 AC_CHECK_DECLS(m4_normalize([
 	LO_FLAGS_READ_ONLY,
+	LO_FLAGS_USE_AOPS,
 	LO_FLAGS_AUTOCLEAR,
-	LO_FLAGS_PARTSCAN
+	LO_FLAGS_PARTSCAN,
+	LO_FLAGS_DIRECT_IO
 ]),,, [#include <linux/loop.h>])
 
 AC_CHECK_DECLS(m4_normalize([
@@ -580,6 +635,8 @@ AC_CHECK_DECLS(m4_normalize([
 	V4L2_BUF_TYPE_SLICED_VBI_CAPTURE,
 	V4L2_BUF_TYPE_SLICED_VBI_OUTPUT,
 	V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY,
+	V4L2_BUF_TYPE_SDR_CAPTURE,
+	V4L2_BUF_TYPE_SDR_OUTPUT,
 	V4L2_TUNER_RADIO,
 	V4L2_TUNER_ANALOG_TV,
 	V4L2_TUNER_DIGITAL_TV,
@@ -619,6 +676,14 @@ AC_CHECK_DECLS(m4_normalize([
 #include <linux/types.h>
 #include <linux/videodev2.h>])
 
+AC_CHECK_MEMBERS(m4_normalize([
+	struct v4l2_window.global_alpha,
+	struct v4l2_sdr_format.buffersize
+]),,, [#include <sys/time.h>
+#include <linux/ioctl.h>
+#include <linux/types.h>
+#include <linux/videodev2.h>])
+
 AC_CACHE_CHECK([for BLKGETSIZE64], [ac_cv_have_blkgetsize64],
 	[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 #include <stdlib.h>
@@ -631,13 +696,14 @@ AC_CACHE_CHECK([for BLKGETSIZE64], [ac_cv_have_blkgetsize64],
 AC_CHECK_SIZEOF([long])
 AC_CHECK_SIZEOF([long long])
 AC_CHECK_SIZEOF([off_t],,[#include <sys/types.h>])
+AC_CHECK_SIZEOF([kernel_long_t],,[#include "$srcdir/kernel_types.h"])
 AC_CHECK_SIZEOF([struct i64_i32],,[struct i64_i32 {long long i64; int i32;};])
 
 AC_CACHE_CHECK([for SIGRTMIN], [st_cv_SIGRTMIN],
 	       [[st_cv_SIGRTMIN="$(echo SIGRTMIN |
 			$CPP $CPPFLAGS -P -imacros asm/signal.h - |
 			grep '^[0-9]')"
-	         test -n "$st_cv_SIGRTMIN" || st_cv_SIGRTMIN=no]])
+		 test -n "$st_cv_SIGRTMIN" || st_cv_SIGRTMIN=no]])
 if test "x$st_cv_SIGRTMIN" != xno; then
 	AC_DEFINE_UNQUOTED([ASM_SIGRTMIN], [$st_cv_SIGRTMIN],
 			   [SIGRTMIN defined in <asm/signal.h>])
@@ -646,7 +712,7 @@ AC_CACHE_CHECK([for SA_RESTORER], [st_cv_SA_RESTORER],
 	       [st_cv_SA_RESTORER="$(echo SA_RESTORER |
 			$CPP $CPPFLAGS -P -imacros asm/signal.h - |
 			grep ^0x)"
-	        test -n "$st_cv_SA_RESTORER" || st_cv_SA_RESTORER=no])
+		test -n "$st_cv_SA_RESTORER" || st_cv_SA_RESTORER=no])
 if test "x$st_cv_SA_RESTORER" != xno; then
 	AC_DEFINE_UNQUOTED([ASM_SA_RESTORER], [$st_cv_SA_RESTORER],
 			   [SA_RESTORER defined in <asm/signal.h>])
@@ -659,6 +725,16 @@ AC_CACHE_CHECK([for __builtin_popcount], [st_cv_have___builtin_popcount],
 if test "x$st_cv_have___builtin_popcount" = xyes; then
 	AC_DEFINE([HAVE___BUILTIN_POPCOUNT], [1],
 		  [Define to 1 if the system provides __builtin_popcount function])
+fi
+
+AC_CACHE_CHECK([for program_invocation_name], [st_cv_have_program_invocation_name],
+	       [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <errno.h>]],
+						[[return !*program_invocation_name]])],
+			       [st_cv_have_program_invocation_name=yes],
+			       [st_cv_have_program_invocation_name=no])])
+if test "x$st_cv_have_program_invocation_name" = xyes; then
+	AC_DEFINE([HAVE_PROGRAM_INVOCATION_NAME], [1],
+		  [Define to 1 if the system provides program_invocation_name variable])
 fi
 
 AC_CHECK_LIB([dl], [dladdr], [dl_LIBS='-ldl'], [dl_LIBS=])
@@ -674,15 +750,15 @@ libunwind_CPPFLAGS=
 libunwind_LDFLAGS=
 libunwind_LIBS=
 AC_ARG_WITH([libunwind],
-            [AS_HELP_STRING([--with-libunwind],
-                            [use libunwind to implement stack tracing support])],
-            [case "${withval}" in
-             yes|no|check) ;;
-             *) with_libunwind=yes
-                libunwind_CPPFLAGS="-I${withval}/include"
-                libunwind_LDFLAGS="-L${withval}/lib" ;;
-             esac],
-            [with_libunwind=check]
+	    [AS_HELP_STRING([--with-libunwind],
+			    [use libunwind to implement stack tracing support])],
+	    [case "${withval}" in
+	     yes|no|check) ;;
+	     *) with_libunwind=yes
+		libunwind_CPPFLAGS="-I${withval}/include"
+		libunwind_LDFLAGS="-L${withval}/lib" ;;
+	     esac],
+	    [with_libunwind=check]
 )
 
 use_libunwind=no
@@ -691,56 +767,56 @@ AS_IF([test "x$with_libunwind" != xno],
        CPPFLAGS="$CPPFLAGS $libunwind_CPPFLAGS"
 
        AC_CHECK_HEADERS([libunwind-ptrace.h],
-         [saved_LDFLAGS="$LDFLAGS"
-          LDFLAGS="$LDFLAGS $libunwind_LDFLAGS"
+	 [saved_LDFLAGS="$LDFLAGS"
+	  LDFLAGS="$LDFLAGS $libunwind_LDFLAGS"
 
-          AC_CHECK_LIB([unwind], [backtrace],
-            [libunwind_LIBS="-lunwind $libunwind_LIBS"
+	  AC_CHECK_LIB([unwind], [backtrace],
+	    [libunwind_LIBS="-lunwind $libunwind_LIBS"
 
-             AC_MSG_CHECKING([for unw_create_addr_space in libunwind-generic])
-             saved_LIBS="$LIBS"
-             LIBS="-lunwind-generic $libunwind_LIBS $LIBS"
+	     AC_MSG_CHECKING([for unw_create_addr_space in libunwind-generic])
+	     saved_LIBS="$LIBS"
+	     LIBS="-lunwind-generic $libunwind_LIBS $LIBS"
 
-             AC_LINK_IFELSE(
-               [AC_LANG_PROGRAM([[#include <libunwind-ptrace.h>]],
-                                [[return !unw_create_addr_space(0, 0)]])
-               ],
-               [AC_MSG_RESULT([yes])
-                libunwind_LIBS="-lunwind-generic $libunwind_LIBS"
+	     AC_LINK_IFELSE(
+	       [AC_LANG_PROGRAM([[#include <libunwind-ptrace.h>]],
+				[[return !unw_create_addr_space(0, 0)]])
+	       ],
+	       [AC_MSG_RESULT([yes])
+		libunwind_LIBS="-lunwind-generic $libunwind_LIBS"
 
-                AC_CHECK_LIB([unwind-ptrace], [_UPT_create],
-                  [libunwind_LIBS="-lunwind-ptrace $libunwind_LIBS"
-                   use_libunwind=yes
-                  ],
-                  [if test "x$with_libunwind" != xcheck; then
-                     AC_MSG_FAILURE([failed to find _UPT_create in libunwind-ptrace])
-                   fi
-                  ],
-                  [$libunwind_LIBS]
-                )
-               ],
-               [AC_MSG_RESULT([no])
-                if test "x$with_libunwind" != xcheck; then
-                  AC_MSG_FAILURE([failed to find unw_create_addr_space in libunwind-generic])
-                fi
-               ]
-             )
+		AC_CHECK_LIB([unwind-ptrace], [_UPT_create],
+		  [libunwind_LIBS="-lunwind-ptrace $libunwind_LIBS"
+		   use_libunwind=yes
+		  ],
+		  [if test "x$with_libunwind" != xcheck; then
+		     AC_MSG_FAILURE([failed to find _UPT_create in libunwind-ptrace])
+		   fi
+		  ],
+		  [$libunwind_LIBS]
+		)
+	       ],
+	       [AC_MSG_RESULT([no])
+		if test "x$with_libunwind" != xcheck; then
+		  AC_MSG_FAILURE([failed to find unw_create_addr_space in libunwind-generic])
+		fi
+	       ]
+	     )
 
-             LIBS="$saved_LIBS"
-            ],
-            [if test "x$with_libunwind" != xcheck; then
-               AC_MSG_FAILURE([failed to find libunwind])
-             fi
-            ],
-            [$libunwind_LIBS]
-          )
+	     LIBS="$saved_LIBS"
+	    ],
+	    [if test "x$with_libunwind" != xcheck; then
+	       AC_MSG_FAILURE([failed to find libunwind])
+	     fi
+	    ],
+	    [$libunwind_LIBS]
+	  )
 
-          LDFLAGS="$saved_LDFLAGS"
-         ],
-         [if test "x$with_libunwind" != xcheck; then
-            AC_MSG_FAILURE([failed to find libunwind-ptrace.h])
-          fi
-         ]
+	  LDFLAGS="$saved_LDFLAGS"
+	 ],
+	 [if test "x$with_libunwind" != xcheck; then
+	    AC_MSG_FAILURE([failed to find libunwind-ptrace.h])
+	  fi
+	 ]
        )
 
        CPPFLAGS="$saved_CPPFLAGS"
@@ -770,10 +846,14 @@ fi
 st_MPERS([m32], [aarch64|powerpc64|sparc64|tile|x32|x86_64])
 st_MPERS([mx32], [x86_64])
 
+AX_VALGRIND_DFLT([sgcheck], [off])
+AX_VALGRIND_CHECK
+
 AC_CONFIG_FILES([Makefile
 		 tests/Makefile
 		 tests-m32/Makefile
 		 tests-mx32/Makefile
+		 strace.1
 		 strace.spec
 		 debian/changelog])
 AC_OUTPUT

@@ -4,6 +4,7 @@
  * Copyright (c) 1993-1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2003-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,9 +35,9 @@
 #  error invalid STRACE_UID_SIZE
 # endif
 
-# define SIZEIFY(x)		SIZEIFY_(x,STRACE_UID_SIZE)
-# define SIZEIFY_(x,size)	SIZEIFY__(x,size)
-# define SIZEIFY__(x,size)	x ## size
+# define SIZEIFY(x)		SIZEIFY_(x, STRACE_UID_SIZE)
+# define SIZEIFY_(x, size)	SIZEIFY__(x, size)
+# define SIZEIFY__(x, size)	x ## size
 
 # define printuid	SIZEIFY(printuid)
 # define sys_chown	SIZEIFY(sys_chown)
@@ -75,7 +76,7 @@ SYS_FUNC(getuid)
 
 SYS_FUNC(setfsuid)
 {
-	tprintf("%u", (uid_t) tcp->u_arg[0]);
+	printuid("", tcp->u_arg[0]);
 
 	return RVAL_UDECIMAL | RVAL_DECODED;
 }
@@ -88,13 +89,16 @@ SYS_FUNC(setuid)
 }
 
 static void
-get_print_uid(struct tcb *tcp, const char *prefix, const long addr)
+get_print_uid(struct tcb *const tcp, const char *const prefix,
+	      const kernel_ulong_t addr)
 {
 	uid_t uid;
 
 	tprints(prefix);
-	if (!umove_or_printaddr(tcp, addr, &uid))
-		tprintf("[%u]", uid);
+	if (!umove_or_printaddr(tcp, addr, &uid)) {
+		printuid("[", uid);
+		tprints("]");
+	}
 }
 
 SYS_FUNC(getresuid)
@@ -156,13 +160,14 @@ printuid(const char *text, const unsigned int uid)
 static bool
 print_gid(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 {
-	tprintf("%u", (unsigned int) (* (uid_t *) elem_buf));
+	printuid("", (*(uid_t *) elem_buf));
 
 	return true;
 }
 
 static void
-print_groups(struct tcb *tcp, const unsigned int len, const unsigned long addr)
+print_groups(struct tcb *const tcp, const unsigned int len,
+	     const kernel_ulong_t addr)
 {
 	static unsigned long ngroups_max;
 	if (!ngroups_max)
@@ -180,9 +185,9 @@ print_groups(struct tcb *tcp, const unsigned int len, const unsigned long addr)
 
 SYS_FUNC(setgroups)
 {
-	const unsigned int len = tcp->u_arg[0];
+	const int len = tcp->u_arg[0];
 
-	tprintf("%u, ", len);
+	tprintf("%d, ", len);
 	print_groups(tcp, len, tcp->u_arg[1]);
 	return RVAL_DECODED;
 }
@@ -190,7 +195,7 @@ SYS_FUNC(setgroups)
 SYS_FUNC(getgroups)
 {
 	if (entering(tcp))
-		tprintf("%u, ", (unsigned int) tcp->u_arg[0]);
+		tprintf("%d, ", (int) tcp->u_arg[0]);
 	else
 		print_groups(tcp, tcp->u_rval, tcp->u_arg[1]);
 	return 0;

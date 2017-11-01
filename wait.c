@@ -7,6 +7,7 @@
  * Copyright (c) 2004 Ulrich Drepper <drepper@redhat.com>
  * Copyright (c) 2009-2013 Denys Vlasenko <dvlasenk@redhat.com>
  * Copyright (c) 2014-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,14 +77,12 @@ printstatus(int status)
 			signame(sig & 0x7f),
 			sig & 0x80 ? " | 0x80" : "");
 		status &= ~W_STOPCODE(sig);
-	}
-	else if (WIFSIGNALED(status)) {
+	} else if (WIFSIGNALED(status)) {
 		tprintf("[{WIFSIGNALED(s) && WTERMSIG(s) == %s%s}",
 			signame(WTERMSIG(status)),
 			WCOREDUMP(status) ? " && WCOREDUMP(s)" : "");
 		status &= ~(W_EXITCODE(0, WTERMSIG(status)) | WCOREFLAG);
-	}
-	else if (WIFEXITED(status)) {
+	} else if (WIFEXITED(status)) {
 		tprintf("[{WIFEXITED(s) && WEXITSTATUS(s) == %d}",
 			WEXITSTATUS(status));
 		exited = 1;
@@ -117,7 +116,8 @@ printstatus(int status)
 }
 
 static int
-printwaitn(struct tcb *tcp, void (*const print_rusage)(struct tcb *, long))
+printwaitn(struct tcb *const tcp,
+	   void (*const print_rusage)(struct tcb *, kernel_ulong_t))
 {
 	if (entering(tcp)) {
 		/* On Linux, kernel-side pid_t is typedef'ed to int

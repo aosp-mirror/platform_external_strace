@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +45,6 @@ SYS_FUNC(membarrier)
 		return 0;
 
 	tcp->auxstr = sprintflags("", membarrier_cmds,
-				  (unsigned long) tcp->u_rval);
+				  (kernel_ulong_t) tcp->u_rval);
 	return RVAL_HEX | RVAL_STR;
 }

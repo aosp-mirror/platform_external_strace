@@ -2,6 +2,7 @@
  * Copyright (c) 2004-2007 Ulrich Drepper <drepper@redhat.com>
  * Copyright (c) 2004 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2005-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -109,9 +110,9 @@ SYS_FUNC(epoll_pwait)
 	epoll_wait_common(tcp);
 	if (exiting(tcp)) {
 		tprints(", ");
-		/* NB: kernel requires arg[5] == NSIG / 8 */
+		/* NB: kernel requires arg[5] == NSIG_BYTES */
 		print_sigset_addr_len(tcp, tcp->u_arg[4], tcp->u_arg[5]);
-		tprintf(", %lu", tcp->u_arg[5]);
+		tprintf(", %" PRI_klu, tcp->u_arg[5]);
 	}
 	return 0;
 }

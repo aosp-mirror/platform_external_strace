@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2003 Roland McGrath <roland@redhat.com>
+ * Copyright (c) 2003-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,8 +41,11 @@
 # define IPC_64 0x100
 #endif
 
-#define PRINTCTL(flagset, arg, dflt) \
-	if ((arg) & IPC_64) tprints("IPC_64|"); \
-	printxval((flagset), (arg) &~ IPC_64, dflt)
+#define PRINTCTL(flagset, arg, dflt)				\
+	do {							\
+		if ((arg) & IPC_64)				\
+			tprints("IPC_64|");			\
+		printxval((flagset), (arg) & ~IPC_64, dflt);	\
+	} while (0)
 
 #endif /* !STRACE_IPC_DEFS_H */

@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2015 Etienne Gemsa <etienne.gemsa@lse.epita.fr>
  * Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,14 +77,14 @@ decode_envelope(void *const data)
 }
 
 static int
-ff_effect_ioctl(struct tcb *tcp, long arg)
+ff_effect_ioctl(struct tcb *const tcp, const kernel_ulong_t arg)
 {
 	tprints(", ");
 
 	struct_ff_effect ffe;
 
 	if (umove_or_printaddr(tcp, arg, &ffe))
-		return 1;
+		return RVAL_IOCTL_DECODED;
 
 	tprints("{type=");
 	printxval(evdev_ff_types, ffe.type, "FF_???");
@@ -94,7 +95,7 @@ ff_effect_ioctl(struct tcb *tcp, long arg)
 
 	if (abbrev(tcp)) {
 		tprints("...}");
-		return 1;
+		return RVAL_IOCTL_DECODED;
 	}
 
 	tprintf("trigger={button=%" PRIu16
@@ -135,7 +136,7 @@ ff_effect_ioctl(struct tcb *tcp, long arg)
 			decode_envelope(&ffe.u.periodic.envelope);
 			tprintf(", custom_len=%u, custom_data=",
 				ffe.u.periodic.custom_len);
-			printaddr((unsigned long) ffe.u.periodic.custom_data);
+			printaddr(ptr_to_kulong(ffe.u.periodic.custom_data));
 			tprints("}");
 			break;
 		case FF_RUMBLE:
@@ -150,11 +151,11 @@ ff_effect_ioctl(struct tcb *tcp, long arg)
 
 	tprints("}");
 
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 
 static int
-abs_ioctl(struct tcb *tcp, long arg)
+abs_ioctl(struct tcb *const tcp, const kernel_ulong_t arg)
 {
 	tprints(", ");
 
@@ -184,11 +185,11 @@ abs_ioctl(struct tcb *tcp, long arg)
 		tprints("}");
 	}
 
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 
 static int
-keycode_ioctl(struct tcb *tcp, long arg)
+keycode_ioctl(struct tcb *const tcp, const kernel_ulong_t arg)
 {
 	tprints(", ");
 
@@ -200,19 +201,19 @@ keycode_ioctl(struct tcb *tcp, long arg)
 		tprints("]");
 	}
 
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 
 # ifdef EVIOCGKEYCODE_V2
 static int
-keycode_V2_ioctl(struct tcb *tcp, long arg)
+keycode_V2_ioctl(struct tcb *const tcp, const kernel_ulong_t arg)
 {
 	tprints(", ");
 
 	struct input_keymap_entry ike;
 
 	if (umove_or_printaddr(tcp, arg, &ike))
-		return 1;
+		return RVAL_IOCTL_DECODED;
 
 	tprintf("{flags=%" PRIu8
 		", len=%" PRIu8 ", ",
@@ -237,12 +238,12 @@ keycode_V2_ioctl(struct tcb *tcp, long arg)
 
 	tprints("}");
 
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 # endif /* EVIOCGKEYCODE_V2 */
 
 static int
-getid_ioctl(struct tcb *tcp, long arg)
+getid_ioctl(struct tcb *const tcp, const kernel_ulong_t arg)
 {
 	tprints(", ");
 
@@ -258,24 +259,25 @@ getid_ioctl(struct tcb *tcp, long arg)
 			id.product,
 			id.version);
 
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 
 static int
-decode_bitset(struct tcb *tcp, long arg, const struct xlat decode_nr[],
-	      const unsigned int max_nr, const char *dflt)
+decode_bitset(struct tcb *const tcp, const kernel_ulong_t arg,
+	      const struct xlat decode_nr[], const unsigned int max_nr,
+	      const char *const dflt)
 {
 	tprints(", ");
 
 	unsigned int size;
-	if ((unsigned long) tcp->u_rval > max_nr)
+	if ((kernel_ulong_t) tcp->u_rval > max_nr)
 		size = max_nr;
 	else
 		size = tcp->u_rval;
 	char decoded_arg[size];
 
 	if (umove_or_printaddr(tcp, arg, &decoded_arg))
-		return 1;
+		return RVAL_IOCTL_DECODED;
 
 	tprints("[");
 
@@ -299,25 +301,26 @@ decode_bitset(struct tcb *tcp, long arg, const struct xlat decode_nr[],
 
 	tprints("]");
 
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 
 # ifdef EVIOCGMTSLOTS
 static int
-mtslots_ioctl(struct tcb *tcp, const unsigned int code, long arg)
+mtslots_ioctl(struct tcb *const tcp, const unsigned int code,
+	      const kernel_ulong_t arg)
 {
 	tprints(", ");
 
 	const size_t size = _IOC_SIZE(code) / sizeof(int);
 	if (!size) {
 		printaddr(arg);
-		return 1;
+		return RVAL_IOCTL_DECODED;
 	}
 
 	int buffer[size];
 
 	if (umove_or_printaddr(tcp, arg, &buffer))
-		return 1;
+		return RVAL_IOCTL_DECODED;
 
 	tprints("{code=");
 	printxval(evdev_mtslots, buffer[0], "ABS_MT_???");
@@ -330,22 +333,23 @@ mtslots_ioctl(struct tcb *tcp, const unsigned int code, long arg)
 
 	tprints("]}");
 
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 # endif /* EVIOCGMTSLOTS */
 
 # if defined EVIOCGREP || defined EVIOCSREP
 static int
-repeat_ioctl(struct tcb *tcp, long arg)
+repeat_ioctl(struct tcb *const tcp, const kernel_ulong_t arg)
 {
 	tprints(", ");
 	printpair_int(tcp, arg, "%u");
-	return 1;
+	return RVAL_IOCTL_DECODED;
 }
 # endif /* EVIOCGREP || EVIOCSREP */
 
 static int
-bit_ioctl(struct tcb *tcp, const unsigned int ev_nr, const long arg)
+bit_ioctl(struct tcb *const tcp, const unsigned int ev_nr,
+	  const kernel_ulong_t arg)
 {
 	switch (ev_nr) {
 		case EV_SYN:
@@ -383,30 +387,31 @@ bit_ioctl(struct tcb *tcp, const unsigned int ev_nr, const long arg)
 		case EV_PWR:
 			tprints(", ");
 			printnum_int(tcp, arg, "%d");
-			return 1;
+			return RVAL_IOCTL_DECODED;
 		case EV_FF_STATUS:
 			return decode_bitset(tcp, arg, evdev_ff_status,
 					     FF_STATUS_MAX, "FF_STATUS_???");
 		default:
 			tprints(", ");
 			printaddr(arg);
-			return 1;
+			return RVAL_IOCTL_DECODED;
 	}
 }
 
 static int
-evdev_read_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
+evdev_read_ioctl(struct tcb *const tcp, const unsigned int code,
+		 const kernel_ulong_t arg)
 {
 	/* fixed-number fixed-length commands */
 	switch (code) {
 		case EVIOCGVERSION:
 			tprints(", ");
 			printnum_int(tcp, arg, "%#x");
-			return 1;
+			return RVAL_IOCTL_DECODED;
 		case EVIOCGEFFECTS:
 			tprints(", ");
 			printnum_int(tcp, arg, "%u");
-			return 1;
+			return RVAL_IOCTL_DECODED;
 		case EVIOCGID:
 			return getid_ioctl(tcp, arg);
 # ifdef EVIOCGREP
@@ -434,8 +439,8 @@ evdev_read_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
 			if (syserror(tcp))
 				printaddr(arg);
 			else
-				printstr(tcp, arg, tcp->u_rval);
-			return 1;
+				printstrn(tcp, arg, tcp->u_rval);
+			return RVAL_IOCTL_DECODED;
 # ifdef EVIOCGPROP
 		case _IOC_NR(EVIOCGPROP(0)):
 			return decode_bitset(tcp, arg, evdev_prop,
@@ -469,7 +474,8 @@ evdev_read_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
 }
 
 static int
-evdev_write_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
+evdev_write_ioctl(struct tcb *const tcp, const unsigned int code,
+		  const kernel_ulong_t arg)
 {
 	/* fixed-number fixed-length commands */
 	switch (code) {
@@ -487,18 +493,18 @@ evdev_write_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
 			return ff_effect_ioctl(tcp, arg);
 		case EVIOCRMFF:
 			tprintf(", %d", (int) arg);
-			return 1;
+			return RVAL_IOCTL_DECODED;
 		case EVIOCGRAB:
 # ifdef EVIOCREVOKE
 		case EVIOCREVOKE:
 # endif
-			tprintf(", %lu", arg);
-			return 1;
+			tprintf(", %" PRI_klu, arg);
+			return RVAL_IOCTL_DECODED;
 # ifdef EVIOCSCLOCKID
 		case EVIOCSCLOCKID:
 			tprints(", ");
 			printnum_int(tcp, arg, "%u");
-			return 1;
+			return RVAL_IOCTL_DECODED;
 # endif
 	}
 
@@ -509,10 +515,10 @@ evdev_write_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
 	return 0;
 }
 
-MPERS_PRINTER_DECL(int, evdev_ioctl, struct tcb *tcp,
-		   const unsigned int code, const long arg)
+MPERS_PRINTER_DECL(int, evdev_ioctl, struct tcb *const tcp,
+		   const unsigned int code, const kernel_ulong_t arg)
 {
-	switch(_IOC_DIR(code)) {
+	switch (_IOC_DIR(code)) {
 		case _IOC_READ:
 			if (entering(tcp))
 				return 0;

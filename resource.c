@@ -3,6 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 1999-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +50,7 @@ sprint_rlim64(uint64_t lim)
 }
 
 static void
-print_rlimit64(struct tcb *tcp, unsigned long addr)
+print_rlimit64(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct rlimit_64 {
 		uint64_t rlim_cur;
@@ -80,7 +81,7 @@ sprint_rlim32(uint32_t lim)
 }
 
 static void
-print_rlimit32(struct tcb *tcp, unsigned long addr)
+print_rlimit32(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct rlimit_32 {
 		uint32_t rlim_cur;
@@ -94,19 +95,15 @@ print_rlimit32(struct tcb *tcp, unsigned long addr)
 }
 
 static void
-decode_rlimit(struct tcb *tcp, unsigned long addr)
+decode_rlimit(struct tcb *const tcp, const kernel_ulong_t addr)
 {
-# if defined(X86_64) || defined(X32)
 	/*
 	 * i386 is the only personality on X86_64 and X32
 	 * with 32-bit rlim_t.
 	 * When current_personality is X32, current_wordsize
 	 * equals to 4 but rlim_t is 64-bit.
 	 */
-	if (current_personality == 1)
-# else
-	if (current_wordsize == 4)
-# endif
+	if (current_klongsize == 4)
 		print_rlimit32(tcp, addr);
 	else
 		print_rlimit64(tcp, addr);
@@ -123,8 +120,7 @@ SYS_FUNC(getrlimit)
 	if (entering(tcp)) {
 		printxval(resources, tcp->u_arg[0], "RLIMIT_???");
 		tprints(", ");
-	}
-	else {
+	} else {
 		decode_rlimit(tcp, tcp->u_arg[1]);
 	}
 	return 0;
@@ -160,8 +156,7 @@ SYS_FUNC(getrusage)
 	if (entering(tcp)) {
 		printxval(usagewho, tcp->u_arg[0], "RUSAGE_???");
 		tprints(", ");
-	}
-	else
+	} else
 		printrusage(tcp, tcp->u_arg[1]);
 	return 0;
 }
@@ -172,8 +167,7 @@ SYS_FUNC(osf_getrusage)
 	if (entering(tcp)) {
 		printxval(usagewho, tcp->u_arg[0], "RUSAGE_???");
 		tprints(", ");
-	}
-	else
+	} else
 		printrusage32(tcp, tcp->u_arg[1]);
 	return 0;
 }

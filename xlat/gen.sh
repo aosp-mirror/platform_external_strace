@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2014-2015 Mike Frysinger <vapier@gentoo.org>
 # Copyright (c) 2014-2015 Dmitry V. Levin <ldv@altlinux.org>
+# Copyright (c) 2014-2017 The strace developers.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -135,6 +136,9 @@ gen_header()
 	while read line; do
 		LC_COLLATE=C
 		case $line in
+		'#stop')
+			exit 0
+			;;
 		'#conditional')
 			unconditional=
 			;;

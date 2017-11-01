@@ -8,6 +8,7 @@
  *                    <barrow_dj@mail.yahoo.com,djbarrow@de.ibm.com>
  * Copyright (c) 2000 PocketPenguins Inc.  Linux for Hitachi SuperH
  *                    port by Greg Banks <gbanks@pocketpenguins.com>
+ * Copyright (c) 1999-2017 The strace developers.
  *
  * All rights reserved.
  *
@@ -57,7 +58,7 @@ static const struct xlat struct_user_offsets[] = {
 };
 
 static void
-print_user_offset_addr(const unsigned long addr)
+print_user_offset_addr(const kernel_ulong_t addr)
 {
 	const struct xlat *x;
 
@@ -73,8 +74,8 @@ print_user_offset_addr(const unsigned long addr)
 			printaddr(addr);
 		} else {
 			--x;
-			tprintf("%s + %lu",
-				x->str, addr - (unsigned long) x->val);
+			tprintf("%s + %" PRI_klu,
+				x->str, addr - (kernel_ulong_t) x->val);
 		}
 	} else {
 		tprints(x->str);
@@ -83,10 +84,10 @@ print_user_offset_addr(const unsigned long addr)
 
 SYS_FUNC(ptrace)
 {
-	const unsigned long request = tcp->u_arg[0];
+	const kernel_ulong_t request = tcp->u_arg[0];
 	const int pid = tcp->u_arg[1];
-	const unsigned long addr = tcp->u_arg[2];
-	const unsigned long data = tcp->u_arg[3];
+	const kernel_ulong_t addr = tcp->u_arg[2];
+	const kernel_ulong_t data = tcp->u_arg[3];
 
 	if (entering(tcp)) {
 		/* request */
@@ -121,7 +122,7 @@ SYS_FUNC(ptrace)
 		case PTRACE_GETSIGMASK:
 		case PTRACE_SETSIGMASK:
 		case PTRACE_SECCOMP_GET_FILTER:
-			tprintf(", %lu", addr);
+			tprintf(", %" PRI_klu, addr);
 			break;
 		case PTRACE_PEEKSIGINFO: {
 			tprints(", ");
@@ -247,16 +248,10 @@ SYS_FUNC(ptrace)
 			print_sigset_addr_len(tcp, data, addr);
 			break;
 		case PTRACE_PEEKSIGINFO:
-			if (syserror(tcp))
-				printaddr(data);
-			else
-				print_siginfo_array(tcp, data, tcp->u_rval);
+			print_siginfo_array(tcp, data, tcp->u_rval);
 			break;
 		case PTRACE_SECCOMP_GET_FILTER:
-			if (syserror(tcp))
-				printaddr(data);
-			else
-				print_seccomp_fprog(tcp, data, tcp->u_rval);
+			print_seccomp_fprog(tcp, data, tcp->u_rval);
 			break;
 		}
 	}
