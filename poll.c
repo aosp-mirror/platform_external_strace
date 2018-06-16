@@ -57,7 +57,7 @@ decode_poll_entering(struct tcb *tcp)
 	struct pollfd fds;
 
 	print_array(tcp, addr, nfds, &fds, sizeof(fds),
-		    umoven_or_printaddr, print_pollfd, 0);
+		    tfetch_mem, print_pollfd, 0);
 	tprintf(", %u, ", nfds);
 }
 
@@ -156,14 +156,7 @@ SYS_FUNC(poll)
 {
 	if (entering(tcp)) {
 		decode_poll_entering(tcp);
-		int timeout = tcp->u_arg[2];
-
-#ifdef INFTIM
-		if (INFTIM == timeout)
-			tprints("INFTIM");
-		else
-#endif
-			tprintf("%d", timeout);
+		tprintf("%d", (int) tcp->u_arg[2]);
 
 		return 0;
 	} else {

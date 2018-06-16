@@ -30,6 +30,8 @@
 #include "nsig.h"
 #include "number_set.h"
 #include "filter.h"
+#include "delay.h"
+#include "retval.h"
 
 struct number_set *read_set;
 struct number_set *write_set;
@@ -40,6 +42,11 @@ static struct number_set *inject_set;
 static struct number_set *raw_set;
 static struct number_set *trace_set;
 static struct number_set *verbose_set;
+
+/* Only syscall numbers are personality-specific so far.  */
+struct inject_personality_data {
+	uint16_t scno;
+};
 
 static int
 sigstr_to_uint(const char *s)
@@ -79,11 +86,32 @@ find_errno_by_name(const char *name)
 }
 
 static bool
+parse_delay_token(const char *input, struct inject_opts *fopts, bool isenter)
+{
+       unsigned flag = isenter ? INJECT_F_DELAY_ENTER : INJECT_F_DELAY_EXIT;
+
+       if (fopts->data.flags & flag) /* duplicate */
+               return false;
+       long long intval = string_to_ulonglong(input);
+       if (intval < 0) /* couldn't parse */
+               return false;
+
+       if (fopts->data.delay_idx == (uint16_t) -1)
+               fopts->data.delay_idx = alloc_delay_data();
+       /* populate .ts_enter or .ts_exit */
+       fill_delay_data(fopts->data.delay_idx, intval, isenter);
+       fopts->data.flags |= flag;
+
+       return true;
+}
+
+static bool
 parse_inject_token(const char *const token, struct inject_opts *const fopts,
+		   struct inject_personality_data *const pdata,
 		   const bool fault_tokens_only)
 {
 	const char *val;
-	kernel_long_t intval;
+	int intval;
 
 	if ((val = STR_STRIP_PREFIX(token, "when=")) != token) {
 		/*
@@ -115,38 +143,85 @@ parse_inject_token(const char *const token, struct inject_opts *const fopts,
 			/* F == F+0 */
 			fopts->step = 0;
 		}
+	} else if ((val = STR_STRIP_PREFIX(token, "syscall=")) != token) {
+		if (fopts->data.flags & INJECT_F_SYSCALL)
+			return false;
+
+		for (unsigned int p = 0; p < SUPPORTED_PERSONALITIES; ++p) {
+			kernel_long_t scno = scno_by_name(val, p, 0);
+
+			if (scno < 0)
+				return false;
+
+			/*
+			 * We want to inject only pure system calls with no side
+			 * effects.
+			 */
+			if (!(sysent_vec[p][scno].sys_flags & TRACE_PURE))
+				return false;
+
+			pdata[p].scno = scno;
+		}
+
+		fopts->data.flags |= INJECT_F_SYSCALL;
 	} else if ((val = STR_STRIP_PREFIX(token, "error=")) != token) {
-		if (fopts->data.flags & INJECT_F_RETVAL)
+		if (fopts->data.flags & (INJECT_F_ERROR | INJECT_F_RETVAL))
 			return false;
 		intval = string_to_uint_upto(val, MAX_ERRNO_VALUE);
 		if (intval < 0)
 			intval = find_errno_by_name(val);
 		if (intval < 1)
 			return false;
-		fopts->data.rval = -intval;
-		fopts->data.flags |= INJECT_F_RETVAL;
+		fopts->data.rval_idx = retval_new(intval);
+		fopts->data.flags |= INJECT_F_ERROR;
 	} else if (!fault_tokens_only
 		   && (val = STR_STRIP_PREFIX(token, "retval=")) != token) {
-		if (fopts->data.flags & INJECT_F_RETVAL)
-			return false;
-		intval = string_to_kulong(val);
-		if (intval < 0)
+
+		if (fopts->data.flags & (INJECT_F_ERROR | INJECT_F_RETVAL))
 			return false;
 
-#if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG && !HAVE_ARCH_DEDICATED_ERR_REG
-		if ((int) intval != intval)
-			error_msg("Injected return value %" PRI_kld " will be"
-				  " clipped to %d in compat personality",
-				  intval, (int) intval);
+		errno = 0;
+		char *endp;
+		unsigned long long ullval = strtoull(val, &endp, 0);
+		if (endp == val || *endp || (kernel_ulong_t) ullval != ullval
+		    || ((ullval == 0 || ullval == ULLONG_MAX) && errno))
+			return false;
 
-		if ((int) intval < 0 && (int) intval >= -MAX_ERRNO_VALUE)
-			error_msg("Inadvertent injection of error %d is"
-				  " possible in compat personality for"
-				  " retval=%" PRI_kld,
-				  -(int) intval, intval);
+#if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG
+		bool inadvertent_fault_injection = false;
 #endif
 
-		fopts->data.rval = intval;
+#if !HAVE_ARCH_DEDICATED_ERR_REG
+		if ((kernel_long_t) ullval < 0
+		    && (kernel_long_t) ullval >= -MAX_ERRNO_VALUE) {
+# if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG
+			inadvertent_fault_injection = true;
+# endif
+			error_msg("Inadvertent injection of error %" PRI_kld
+				  " is possible for retval=%llu",
+				  -(kernel_long_t) ullval, ullval);
+		}
+# if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG
+		else if ((int) ullval < 0 && (int) ullval >= -MAX_ERRNO_VALUE) {
+			inadvertent_fault_injection = true;
+			error_msg("Inadvertent injection of error %d is"
+				  " possible in compat personality for"
+				  " retval=%llu",
+				  -(int) ullval, ullval);
+		}
+# endif
+#endif
+
+#if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG
+		if (!inadvertent_fault_injection
+		    && (unsigned int) ullval != ullval) {
+			error_msg("Injected return value %llu will be"
+				  " clipped to %u in compat personality",
+				  ullval, (unsigned int) ullval);
+		}
+#endif
+
+		fopts->data.rval_idx = retval_new(ullval);
 		fopts->data.flags |= INJECT_F_RETVAL;
 	} else if (!fault_tokens_only
 		   && (val = STR_STRIP_PREFIX(token, "signal=")) != token) {
@@ -157,6 +232,14 @@ parse_inject_token(const char *const token, struct inject_opts *const fopts,
 			return false;
 		fopts->data.signo = intval;
 		fopts->data.flags |= INJECT_F_SIGNAL;
+	} else if (!fault_tokens_only
+		&& (val = STR_STRIP_PREFIX(token, "delay_enter=")) != token) {
+		if (!parse_delay_token(val, fopts, true))
+			return false;
+	} else if (!fault_tokens_only
+		&& (val = STR_STRIP_PREFIX(token, "delay_exit=")) != token) {
+		if (!parse_delay_token(val, fopts, false))
+			return false;
 	} else {
 		return false;
 	}
@@ -167,6 +250,7 @@ parse_inject_token(const char *const token, struct inject_opts *const fopts,
 static const char *
 parse_inject_expression(char *const str,
 			struct inject_opts *const fopts,
+			struct inject_personality_data *const pdata,
 			const bool fault_tokens_only)
 {
 	if (str[0] == '\0' || str[0] == ':')
@@ -177,7 +261,7 @@ parse_inject_expression(char *const str,
 
 	char *token;
 	while ((token = strtok_r(NULL, ":", &saveptr))) {
-		if (!parse_inject_token(token, fopts, fault_tokens_only))
+		if (!parse_inject_token(token, fopts, pdata, fault_tokens_only))
 			return NULL;
 	}
 
@@ -247,11 +331,15 @@ qualify_inject_common(const char *const str,
 {
 	struct inject_opts opts = {
 		.first = 1,
-		.step = 1
+		.step = 1,
+		.data = {
+			.delay_idx = -1
+		}
 	};
+	struct inject_personality_data pdata[SUPPORTED_PERSONALITIES] = { { 0 } };
 	char *copy = xstrdup(str);
 	const char *name =
-		parse_inject_expression(copy, &opts, fault_tokens_only);
+		parse_inject_expression(copy, &opts, pdata, fault_tokens_only);
 	if (!name)
 		error_msg_and_die("invalid %s '%s'", description, str);
 
@@ -261,12 +349,12 @@ qualify_inject_common(const char *const str,
 
 	free(copy);
 
-	/* If neither of retval, error, or signal is specified, then ... */
-	if (!opts.data.flags) {
+	/* If neither of retval, error, signal or delay is specified, then ... */
+	if (!(opts.data.flags & INJECT_ACTION_FLAGS)) {
 		if (fault_tokens_only) {
 			/* in fault= syntax the default error code is ENOSYS. */
-			opts.data.rval = -ENOSYS;
-			opts.data.flags |= INJECT_F_RETVAL;
+			opts.data.rval_idx = retval_new(ENOSYS);
+			opts.data.flags |= INJECT_F_ERROR;
 		} else {
 			/* in inject= syntax this is not allowed. */
 			error_msg_and_die("invalid %s '%s'", description, str);
@@ -294,6 +382,10 @@ qualify_inject_common(const char *const str,
 			if (is_number_in_set_array(i, tmp_set, p)) {
 				add_number_to_set_array(i, inject_set, p);
 				inject_vec[p][i] = opts;
+
+				/* Copy per-personality data.  */
+				inject_vec[p][i].data.scno =
+					pdata[p].scno;
 			}
 		}
 	}

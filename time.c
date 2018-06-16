@@ -2,7 +2,7 @@
  * Copyright (c) 1991, 1992 Paul Kranenburg <pk@cs.few.eur.nl>
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
- * Copyright (c) 1996-2017 The strace developers.
+ * Copyright (c) 1996-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -116,7 +116,8 @@ SYS_FUNC(nanosleep)
 SYS_FUNC(getitimer)
 {
 	if (entering(tcp)) {
-		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
+		printxval_index(itimer_which, (unsigned int) tcp->u_arg[0],
+				"ITIMER_???");
 		tprints(", ");
 	} else {
 		print_itimerval(tcp, tcp->u_arg[1]);
@@ -128,7 +129,8 @@ SYS_FUNC(getitimer)
 SYS_FUNC(osf_getitimer)
 {
 	if (entering(tcp)) {
-		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
+		printxval_index(itimer_which, (unsigned int) tcp->u_arg[0],
+				"ITIMER_???");
 		tprints(", ");
 	} else {
 		print_itimerval32(tcp, tcp->u_arg[1]);
@@ -140,7 +142,8 @@ SYS_FUNC(osf_getitimer)
 SYS_FUNC(setitimer)
 {
 	if (entering(tcp)) {
-		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
+		printxval_index(itimer_which, (unsigned int) tcp->u_arg[0],
+				"ITIMER_???");
 		tprints(", ");
 		print_itimerval(tcp, tcp->u_arg[1]);
 		tprints(", ");
@@ -154,7 +157,8 @@ SYS_FUNC(setitimer)
 SYS_FUNC(osf_setitimer)
 {
 	if (entering(tcp)) {
-		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
+		printxval_index(itimer_which, (unsigned int) tcp->u_arg[0],
+				"ITIMER_???");
 		tprints(", ");
 		print_itimerval32(tcp, tcp->u_arg[1]);
 		tprints(", ");
@@ -172,10 +176,9 @@ do_adjtimex(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	if (print_timex(tcp, addr))
 		return 0;
-	tcp->auxstr = xlookup(adjtimex_state, (kernel_ulong_t) tcp->u_rval);
-	if (tcp->auxstr)
-		return RVAL_STR;
-	return 0;
+	tcp->auxstr = xlat_idx(adjtimex_state, ARRAY_SIZE(adjtimex_state) - 1,
+			       (kernel_ulong_t) tcp->u_rval);
+	return RVAL_STR;
 }
 
 SYS_FUNC(adjtimex)
@@ -198,16 +201,19 @@ printclockname(int clockid)
 		if ((clockid & CLOCKFD_MASK) == CLOCKFD)
 			tprintf("FD_TO_CLOCKID(%d)", CLOCKID_TO_FD(clockid));
 		else {
-			if (CPUCLOCK_PERTHREAD(clockid))
-				tprintf("MAKE_THREAD_CPUCLOCK(%d,", CPUCLOCK_PID(clockid));
-			else
-				tprintf("MAKE_PROCESS_CPUCLOCK(%d,", CPUCLOCK_PID(clockid));
-			printxval(cpuclocknames, clockid & CLOCKFD_MASK, "CPUCLOCK_???");
+			tprintf("%s(%d,",
+				CPUCLOCK_PERTHREAD(clockid) ?
+					"MAKE_THREAD_CPUCLOCK" :
+					"MAKE_PROCESS_CPUCLOCK",
+				CPUCLOCK_PID(clockid));
+			printxval_index(cpuclocknames,
+					(unsigned int) clockid & CLOCKFD_MASK,
+					"CPUCLOCK_???");
 			tprints(")");
 		}
 	} else
 #endif
-		printxval(clocknames, clockid, "CLOCK_???");
+		printxval_index(clocknames, clockid, "CLOCK_???");
 }
 
 SYS_FUNC(clock_settime)

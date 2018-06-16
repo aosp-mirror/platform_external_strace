@@ -3,7 +3,7 @@
  * Copyright (c) 1996-2000 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2005-2007 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2008-2015 Dmitry V. Levin <ldv@altlinux.org>
- * Copyright (c) 2014-2017 The strace developers.
+ * Copyright (c) 2014-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,8 @@
 
 #include <linux/prctl.h>
 
+#include "xstring.h"
+
 #include "xlat/prctl_options.h"
 #include "xlat/pr_cap_ambient.h"
 #include "xlat/pr_dumpable.h"
@@ -40,6 +42,10 @@
 #include "xlat/pr_mce_kill.h"
 #include "xlat/pr_mce_kill_policy.h"
 #include "xlat/pr_set_mm.h"
+#include "xlat/pr_spec_cmds.h"
+#include "xlat/pr_spec_get_store_bypass_flags.h"
+#include "xlat/pr_spec_set_store_bypass_flags.h"
+#include "xlat/pr_sve_vl_flags.h"
 #include "xlat/pr_tsc.h"
 #include "xlat/pr_unalign_flags.h"
 
@@ -65,6 +71,11 @@ enum {
 
 #include "xlat/cap.h"
 
+#ifndef PR_SVE_VL_LEN_MASK
+# define PR_SVE_VL_LEN_MASK 0xffff
+#endif
+
+
 static void
 print_prctl_args(struct tcb *tcp, const unsigned int first)
 {
@@ -72,6 +83,22 @@ print_prctl_args(struct tcb *tcp, const unsigned int first)
 
 	for (i = first; i < tcp->s_ent->nargs; ++i)
 		tprintf(", %#" PRI_klx, tcp->u_arg[i]);
+}
+
+static char *
+sprint_sve_val(kernel_ulong_t arg)
+{
+	static char out[sizeof("PR_SVE_SET_VL_ONEXEC|PR_SVE_VL_INHERIT|0x") +
+			sizeof(kernel_ulong_t) * 2];
+
+	kernel_ulong_t vl = arg & PR_SVE_VL_LEN_MASK;
+	kernel_ulong_t flags = arg & ~PR_SVE_VL_LEN_MASK;
+	const char *flags_str = sprintflags("", pr_sve_vl_flags, flags);
+
+	xsprintf(out, "%s%s%#" PRI_klx,
+		 flags_str ?: "", flags_str ? "|" : "", vl);
+
+	return out;
 }
 
 SYS_FUNC(prctl)
@@ -184,6 +211,44 @@ SYS_FUNC(prctl)
 					  (kernel_ulong_t) tcp->u_rval);
 		return RVAL_STR;
 
+	case PR_SVE_SET_VL:
+		if (entering(tcp)) {
+			tprintf(", %s", sprint_sve_val(arg2));
+			return 0;
+		}
+		ATTRIBUTE_FALLTHROUGH;
+
+	case PR_SVE_GET_VL:
+		if (entering(tcp))
+			break;
+		if (syserror(tcp) || tcp->u_rval == 0)
+			return 0;
+
+		tcp->auxstr = sprint_sve_val(tcp->u_rval);
+
+		return RVAL_STR;
+
+	case PR_GET_SPECULATION_CTRL:
+		if (entering(tcp)) {
+			tprints(", ");
+			printxval64(pr_spec_cmds, arg2, "PR_SPEC_???");
+
+			break;
+		}
+
+		if (syserror(tcp))
+			return 0;
+
+		switch (arg2) {
+		case PR_SPEC_STORE_BYPASS:
+			tcp->auxstr = sprintflags("",
+						  pr_spec_get_store_bypass_flags,
+						  (kernel_ulong_t) tcp->u_rval);
+			break;
+		}
+
+		return RVAL_STR;
+
 	/* PR_TASK_PERF_EVENTS_* take no arguments. */
 	case PR_TASK_PERF_EVENTS_DISABLE:
 	case PR_TASK_PERF_EVENTS_ENABLE:
@@ -278,10 +343,12 @@ SYS_FUNC(prctl)
 
 	case PR_SET_PTRACER:
 		tprints(", ");
-		if ((int) arg2 == -1)
-			tprints("PR_SET_PTRACER_ANY");
-		else
+		if ((int) arg2 == -1) {
+			print_xlat_ex(arg2, "PR_SET_PTRACER_ANY",
+				      XLAT_STYLE_DEFAULT);
+		} else {
 			tprintf("%" PRI_klu, arg2);
+		}
 		return RVAL_DECODED;
 
 	case PR_SET_SECCOMP:
@@ -332,11 +399,28 @@ SYS_FUNC(prctl)
 			return 0;
 		tcp->auxstr = xlookup(pr_mce_kill_policy,
 				      (kernel_ulong_t) tcp->u_rval);
-		return tcp->auxstr ? RVAL_STR : RVAL_UDECIMAL;
+		return RVAL_STR;
 
 	case PR_SET_FP_MODE:
 		tprints(", ");
 		printflags(pr_fp_mode, arg2, "PR_FP_MODE_???");
+		return RVAL_DECODED;
+
+	case PR_SET_SPECULATION_CTRL:
+		tprints(", ");
+		printxval64(pr_spec_cmds, arg2, "PR_SPEC_???");
+		tprints(", ");
+
+		switch (arg2) {
+		case PR_SPEC_STORE_BYPASS:
+			printxval64(pr_spec_set_store_bypass_flags, arg3,
+				    "PR_SPEC_???");
+			break;
+
+		default:
+			tprintf("%#" PRI_klx, arg3);
+		}
+
 		return RVAL_DECODED;
 
 	case PR_GET_NO_NEW_PRIVS:
