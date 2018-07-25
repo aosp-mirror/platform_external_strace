@@ -56,6 +56,40 @@ check_h "invalid -O argument: '-42'" -O -42
 check_h "invalid -s argument: '-42'" -s -42
 check_h "invalid -s argument: '1073741824'" -s 1073741824
 check_h "invalid -I argument: '5'" -I 5
+check_h "invalid -X argument: 'test'" -Xtest
+check_h "invalid -X argument: 'a'" -Xa
+check_h "invalid -X argument: 'abbreviated'" -X abbreviated
+
+check_h "incorrect personality designator '' in qualification 'getcwd@'" -e trace=getcwd@
+check_h "incorrect personality designator '42' in qualification 'getcwd@42'" -e trace=getcwd@42
+check_h "incorrect personality designator '42' in qualification 'getcwd@42'" -e trace=gettid,getcwd@42
+check_h "incorrect personality designator '42' in qualification '23@42'" -e trace=23@42,123
+
+check_e "invalid system call '/getcwd@ohmy'" -e trace=/getcwd@ohmy
+
+case "$STRACE_NATIVE_ARCH" in
+x86_64)
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@64
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@32
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@x32
+	;;
+x32)
+	check_h "incorrect personality designator '64' in qualification 'getcwd@64'" -e trace=getcwd@64
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@32
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@x32
+	;;
+aarch64|powerpc64|riscv|s390x|sparc64|tile)
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@64
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@32
+	check_h "incorrect personality designator 'x32' in qualification 'getcwd@x32'" -e trace=getcwd@x32
+	;;
+*)
+	pers="$((SIZEOF_LONG * 8))"
+	inv_pers="$((96 - pers))"
+	check_h "must have PROG [ARGS] or -p PID" -e trace=getcwd@"$pers"
+	check_h "incorrect personality designator '$inv_pers' in qualification 'getcwd@$inv_pers'" -e trace=getcwd@"$inv_pers"
+	check_h "incorrect personality designator 'x32' in qualification 'getcwd@x32'" -e trace=getcwd@x32
+esac
 
 ../zeroargc "$STRACE_EXE" /bin/true 2> "$LOG" &&
 	dump_log_and_fail_with \
@@ -73,8 +107,9 @@ diff -u -- "$EXP" "$LOG" > /dev/null || {
 		"zeroargc $STRACE $args output mismatch"
 }
 
-if [ -n "${UID-}" ]; then
-	if [ "${UID-}" = 0 ]; then
+uid="${UID:-`id -u`}"
+if [ "$uid" -ge 0 ]; then
+	if [ "$uid" -eq 0 ]; then
 		umsg="Cannot find user ':nosuchuser:'"
 	else
 		umsg='You must be root to use the -u option'
@@ -92,9 +127,6 @@ $STRACE_EXE: -t has no effect with -c
 $STRACE_EXE: -T has no effect with -c
 $STRACE_EXE: -y has no effect with -c
 $STRACE_EXE: $umsg" -u :nosuchuser: -cirtTy true
-
-	check_e "-tt has no effect with -r
-$STRACE_EXE: $umsg" -u :nosuchuser: -r -tt true
 fi
 
 args='-p 2147483647'

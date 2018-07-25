@@ -64,15 +64,9 @@ typedef struct v4l2_standard struct_v4l2_standard;
 #include "print_fields.h"
 #include "xstring.h"
 
-/* some historical constants */
-#ifndef V4L2_CID_HCENTER
-#define V4L2_CID_HCENTER (V4L2_CID_BASE+22)
-#endif
-#ifndef V4L2_CID_VCENTER
-#define V4L2_CID_VCENTER (V4L2_CID_BASE+23)
-#endif
-#ifndef V4L2_CID_BAND_STOP_FILTER
-#define V4L2_CID_BAND_STOP_FILTER (V4L2_CID_BASE+33)
+/* v4l2_fourcc_be was added by Linux commit v3.18-rc1~101^2^2~127 */
+#ifndef v4l2_fourcc_be
+# define v4l2_fourcc_be(a, b, c, d) (v4l2_fourcc(a, b, c, d) | (1 << 31))
 #endif
 
 #define FMT_FRACT "%u/%u"
@@ -81,29 +75,23 @@ typedef struct v4l2_standard struct_v4l2_standard;
 #define FMT_RECT "{left=%d, top=%d, width=%u, height=%u}"
 #define ARGS_RECT(x) (x).left, (x).top, (x).width, (x).height
 
+#include "xlat/v4l2_pix_fmts.h"
+#include "xlat/v4l2_sdr_fmts.h"
+
 static void
-print_pixelformat(uint32_t fourcc)
+print_pixelformat(uint32_t fourcc, const struct xlat *xlat)
 {
-	const union {
-		uint32_t pixelformat;
-		unsigned char cc[sizeof(uint32_t)];
-	} u = {
-#if WORDS_BIGENDIAN
-		.cc = {
-			(unsigned char) (fourcc >> 24),
-			(unsigned char) (fourcc >> 16),
-			(unsigned char) (fourcc >> 8),
-			(unsigned char) fourcc
-		}
-#else
-		.pixelformat = fourcc
-#endif
+	unsigned char a[] = {
+		(unsigned char) fourcc,
+		(unsigned char) (fourcc >> 8),
+		(unsigned char) (fourcc >> 16),
+		(unsigned char) (fourcc >> 24),
 	};
 	unsigned int i;
 
 	tprints("v4l2_fourcc(");
-	for (i = 0; i < sizeof(u.cc); ++i) {
-		unsigned char c = u.cc[i];
+	for (i = 0; i < ARRAY_SIZE(a); ++i) {
+		unsigned char c = a[i];
 
 		if (i)
 			tprints(", ");
@@ -138,6 +126,13 @@ print_pixelformat(uint32_t fourcc)
 		}
 	}
 	tprints(")");
+
+	if (xlat) {
+		const char *pixfmt_name = xlookup(xlat, fourcc);
+
+		if (pixfmt_name)
+			tprints_comment(pixfmt_name);
+	}
 }
 
 #include "xlat/v4l2_device_capabilities_flags.h"
@@ -193,7 +188,7 @@ print_v4l2_fmtdesc(struct tcb *const tcp, const kernel_ulong_t arg)
 			   "V4L2_FMT_FLAG_???");
 		PRINT_FIELD_CSTRING(", ", f, description);
 		tprints(", pixelformat=");
-		print_pixelformat(f.pixelformat);
+		print_pixelformat(f.pixelformat, v4l2_pix_fmts);
 	}
 	tprints("}");
 	return RVAL_IOCTL_DECODED;
@@ -223,7 +218,7 @@ print_v4l2_format_fmt(struct tcb *const tcp, const char *prefix,
 		tprints(prefix);
 		tprintf("fmt.pix={width=%u, height=%u, pixelformat=",
 			f->fmt.pix.width, f->fmt.pix.height);
-		print_pixelformat(f->fmt.pix.pixelformat);
+		print_pixelformat(f->fmt.pix.pixelformat, v4l2_pix_fmts);
 		tprints(", field=");
 		printxval(v4l2_fields, f->fmt.pix.field, "V4L2_FIELD_???");
 		tprintf(", bytesperline=%u, sizeimage=%u, colorspace=",
@@ -240,7 +235,7 @@ print_v4l2_format_fmt(struct tcb *const tcp, const char *prefix,
 		tprints(prefix);
 		tprintf("fmt.pix_mp={width=%u, height=%u, pixelformat=",
 			f->fmt.pix_mp.width, f->fmt.pix_mp.height);
-		print_pixelformat(f->fmt.pix_mp.pixelformat);
+		print_pixelformat(f->fmt.pix_mp.pixelformat, v4l2_pix_fmts);
 		tprints(", field=");
 		printxval(v4l2_fields, f->fmt.pix_mp.field, "V4L2_FIELD_???");
 		tprints(", colorspace=");
@@ -275,7 +270,7 @@ print_v4l2_format_fmt(struct tcb *const tcp, const char *prefix,
 		tprintf(", chromakey=%#x, clips=", f->fmt.win.chromakey);
 		ret = print_array(tcp, ptr_to_kulong(f->fmt.win.clips),
 				  f->fmt.win.clipcount, &clip, sizeof(clip),
-				  umoven_or_printaddr, print_v4l2_clip, 0);
+				  tfetch_mem, print_v4l2_clip, 0);
 		tprintf(", clipcount=%u, bitmap=", f->fmt.win.clipcount);
 		printaddr(ptr_to_kulong(f->fmt.win.bitmap));
 #ifdef HAVE_STRUCT_V4L2_WINDOW_GLOBAL_ALPHA
@@ -291,7 +286,7 @@ print_v4l2_format_fmt(struct tcb *const tcp, const char *prefix,
 			"samples_per_line=%u, sample_format=",
 			f->fmt.vbi.sampling_rate, f->fmt.vbi.offset,
 			f->fmt.vbi.samples_per_line);
-		print_pixelformat(f->fmt.vbi.sample_format);
+		print_pixelformat(f->fmt.vbi.sample_format, v4l2_pix_fmts);
 		tprintf(", start=[%u, %u], count=[%u, %u], ",
 			f->fmt.vbi.start[0], f->fmt.vbi.start[1],
 			f->fmt.vbi.count[0], f->fmt.vbi.count[1]);
@@ -338,7 +333,7 @@ print_v4l2_format_fmt(struct tcb *const tcp, const char *prefix,
 	case V4L2_BUF_TYPE_SDR_CAPTURE:
 		tprints(prefix);
 		tprints("fmt.sdr={pixelformat=");
-		print_pixelformat(f->fmt.sdr.pixelformat);
+		print_pixelformat(f->fmt.sdr.pixelformat, v4l2_sdr_fmts);
 #ifdef HAVE_STRUCT_V4L2_SDR_FORMAT_BUFFERSIZE
 		tprintf(", buffersize=%u",
 			f->fmt.sdr.buffersize);
@@ -618,6 +613,12 @@ print_v4l2_input(struct tcb *const tcp, const kernel_ulong_t arg)
 	return RVAL_IOCTL_DECODED;
 }
 
+/*
+ * We include it here and not before print_v4l2_ext_controls as we need
+ * V4L2_CTRL_CLASS_* definitions for V4L2_CID_*_BASE ones.
+ */
+#include "xlat/v4l2_control_classes.h"
+#include "xlat/v4l2_control_id_bases.h"
 #include "xlat/v4l2_control_ids.h"
 
 static int
@@ -723,7 +724,8 @@ print_v4l2_queryctrl(struct tcb *const tcp, const kernel_ulong_t arg)
 		const unsigned long next = c.id & V4L2_CTRL_FLAG_NEXT_CTRL;
 		set_tcb_priv_ulong(tcp, next);
 		if (next) {
-			tprints("V4L2_CTRL_FLAG_NEXT_CTRL|");
+			print_xlat(V4L2_CTRL_FLAG_NEXT_CTRL);
+			tprints("|");
 			c.id &= ~V4L2_CTRL_FLAG_NEXT_CTRL;
 		}
 #endif
@@ -818,8 +820,6 @@ print_v4l2_ext_control(struct tcb *tcp, void *elem_buf, size_t elem_size, void *
 	return true;
 }
 
-#include "xlat/v4l2_control_classes.h"
-
 static int
 print_v4l2_ext_controls(struct tcb *const tcp, const kernel_ulong_t arg,
 			const bool is_get)
@@ -853,7 +853,7 @@ print_v4l2_ext_controls(struct tcb *const tcp, const kernel_ulong_t arg,
 	struct_v4l2_ext_control ctrl;
 	bool fail = !print_array(tcp, ptr_to_kulong(c.controls), c.count,
 				 &ctrl, sizeof(ctrl),
-				 umoven_or_printaddr_ignore_syserror,
+				 tfetch_mem_ignore_syserror,
 				 print_v4l2_ext_control, 0);
 
 	if (exiting(tcp) && syserror(tcp))
@@ -882,7 +882,7 @@ print_v4l2_frmsizeenum(struct tcb *const tcp, const kernel_ulong_t arg)
 		if (umove_or_printaddr(tcp, arg, &s))
 			return RVAL_IOCTL_DECODED;
 		tprintf("{index=%u, pixel_format=", s.index);
-		print_pixelformat(s.pixel_format);
+		print_pixelformat(s.pixel_format, v4l2_pix_fmts);
 		return 0;
 	}
 
@@ -922,7 +922,7 @@ print_v4l2_frmivalenum(struct tcb *const tcp, const kernel_ulong_t arg)
 		if (umove_or_printaddr(tcp, arg, &f))
 			return RVAL_IOCTL_DECODED;
 		tprintf("{index=%u, pixel_format=", f.index);
-		print_pixelformat(f.pixel_format);
+		print_pixelformat(f.pixel_format, v4l2_pix_fmts);
 		tprintf(", width=%u, height=%u", f.width, f.height);
 		return 0;
 	}
@@ -1016,7 +1016,7 @@ MPERS_PRINTER_DECL(int, v4l2_ioctl, struct tcb *const tcp,
 	case VIDIOC_G_FBUF: /* R */
 		if (entering(tcp))
 			return 0;
-		/* fall through */
+		ATTRIBUTE_FALLTHROUGH;
 	case VIDIOC_S_FBUF: /* W */
 		return print_v4l2_framebuffer(tcp, arg);
 
@@ -1031,7 +1031,7 @@ MPERS_PRINTER_DECL(int, v4l2_ioctl, struct tcb *const tcp,
 	case VIDIOC_G_STD: /* R */
 		if (entering(tcp))
 			return 0;
-		/* fall through */
+		ATTRIBUTE_FALLTHROUGH;
 	case VIDIOC_S_STD: /* W */
 		tprints(", ");
 		printnum_int64(tcp, arg, "%#" PRIx64);
@@ -1057,7 +1057,7 @@ MPERS_PRINTER_DECL(int, v4l2_ioctl, struct tcb *const tcp,
 	case VIDIOC_G_INPUT: /* R */
 		if (entering(tcp))
 			return 0;
-		/* fall through */
+		ATTRIBUTE_FALLTHROUGH;
 	case VIDIOC_S_INPUT: /* RW */
 		tprints(", ");
 		printnum_int(tcp, arg, "%u");

@@ -2,7 +2,7 @@
  * Check decoding of keyctl syscall.
  *
  * Copyright (c) 2016 Eugene Syromyatnikov <evgsyr@gmail.com>
- * Copyright (c) 2016-2017 The strace developers.
+ * Copyright (c) 2016-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,6 @@
 # include <errno.h>
 # include <inttypes.h>
 # include <stdarg.h>
-# include <stdbool.h>
 # include <stdio.h>
 # include <stdlib.h>
 # include <string.h>
@@ -89,6 +88,14 @@ bool buf_in_arg;
 
 /* From ioctl_dm.c */
 # define STR32 "AbCdEfGhIjKlMnOpQrStUvWxYz012345"
+
+#if XLAT_RAW
+# define XARG_STR(v_) (v_), STRINGIFY(v_)
+#elif XLAT_VERBOSE
+# define XARG_STR(v_) (v_), STRINGIFY(v_) " /* " #v_ " */"
+#else
+# define XARG_STR ARG_STR
+#endif
 
 /*
  * When this is called with positive size, the buffer provided is an "out"
@@ -188,7 +195,13 @@ do_keyctl(kernel_ulong_t cmd, const char *cmd_str, ...)
 
 	long rc = syscall(__NR_keyctl, cmd, args[0], args[1], args[2], args[3]);
 	const char *errstr = sprintrc(rc);
+#if XLAT_RAW
+	printf("keyctl(%#x", (unsigned) cmd);
+#elif XLAT_VERBOSE
+	printf("keyctl(%#x /* %s */", (unsigned) cmd, cmd_str);
+#else
 	printf("keyctl(%s", cmd_str);
+#endif
 	for (i = 0; i < cnt; i++) {
 		printf(", ");
 		print_arg(args[i], arg_str[i], arg_fmt[i], arg_sz[i], rc);
@@ -300,8 +313,20 @@ main(void)
 
 	static const struct keyctl_dh_params kcdhp_data = {
 		KEY_SPEC_GROUP_KEYRING, 1234567890, 3141592653U };
-	static const char *kcdhp_str = "{private=KEY_SPEC_GROUP_KEYRING, "
-		"prime=1234567890, base=-1153374643}";
+	static const char *kcdhp_str = "{private="
+#if XLAT_RAW || XLAT_VERBOSE
+		"-6"
+#endif
+#if XLAT_VERBOSE
+		" /* "
+#endif
+#if !XLAT_RAW
+		"KEY_SPEC_GROUP_KEYRING"
+#endif
+#if XLAT_VERBOSE
+		" */"
+#endif
+		", prime=1234567890, base=-1153374643}";
 
 	/*
 	 * It's bigger than current hash name size limit, but since it's
@@ -419,7 +444,15 @@ main(void)
 
 	/* Invalid command */
 	do_keyctl((kernel_ulong_t) 0xbadc0dedfacefeedULL,
-		  "0xfacefeed /* KEYCTL_??? */",
+#if XLAT_VERBOSE
+		  "KEYCTL_???"
+#else
+		  "0xfacefeed"
+# if !XLAT_RAW
+		  " /* KEYCTL_??? */"
+# endif
+#endif
+		  ,
 		  sizeof(kernel_ulong_t),
 			(kernel_ulong_t) 0xdeadfee1badc0de5ULL, NULL,
 			kulong_fmt,
@@ -441,7 +474,7 @@ main(void)
 			(kernel_ulong_t) 0xbadc0dedffffffffLLU, "-1", NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_GET_KEYRING_ID),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), "%d",
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), "%d",
 		  sizeof(int), 3141592653U, NULL, "%d", NULL,
 		  0UL);
 
@@ -470,7 +503,7 @@ main(void)
 	buf_in_arg = true;
 
 	do_keyctl(ARG_STR(KEYCTL_UPDATE),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(char *), ARG_STR(NULL), NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) 0, NULL, ksize_fmt,
 		  0UL);
@@ -499,7 +532,7 @@ main(void)
 
 	/* KEYCTL_REVOKE */
 	do_keyctl(ARG_STR(KEYCTL_REVOKE),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_REVOKE),
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
@@ -514,7 +547,7 @@ main(void)
 
 	/* KEYCTL_CHOWN */
 	do_keyctl(ARG_STR(KEYCTL_CHOWN),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(uid_t), ARG_STR(-1), NULL,
 		  sizeof(gid_t), ARG_STR(-1), NULL,
 		  0UL);
@@ -527,8 +560,15 @@ main(void)
 
 	/* KEYCTL_SETPERM */
 	do_keyctl(ARG_STR(KEYCTL_SETPERM),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQKEY_AUTH_KEY), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQKEY_AUTH_KEY), NULL,
 		  sizeof(uint32_t), 0xffffffffU,
+#if XLAT_RAW || XLAT_VERBOSE
+			"0xffffffff"
+#endif
+#if XLAT_VERBOSE
+			" /* "
+#endif
+#if !XLAT_RAW
 			"KEY_POS_VIEW|KEY_POS_READ|KEY_POS_WRITE|"
 			"KEY_POS_SEARCH|KEY_POS_LINK|KEY_POS_SETATTR|"
 			"KEY_USR_VIEW|KEY_USR_READ|KEY_USR_WRITE|"
@@ -537,7 +577,12 @@ main(void)
 			"KEY_GRP_SEARCH|KEY_GRP_LINK|KEY_GRP_SETATTR|"
 			"KEY_OTH_VIEW|KEY_OTH_READ|KEY_OTH_WRITE|"
 			"KEY_OTH_SEARCH|KEY_OTH_LINK|KEY_OTH_SETATTR|"
-			"0xc0c0c0c0", NULL,
+			"0xc0c0c0c0"
+#endif
+#if XLAT_VERBOSE
+			" */"
+#endif
+			, NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_SETPERM),
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
@@ -545,7 +590,12 @@ main(void)
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_SETPERM),
 		  sizeof(kernel_ulong_t), bogus_key3, bogus_key3_str, NULL,
-		  sizeof(uint32_t), 0xc0c0c0c0, "0xc0c0c0c0 /* KEY_??? */",
+		  sizeof(uint32_t), 0xc0c0c0c0,
+			  "0xc0c0c0c0"
+#if !XLAT_RAW
+			  " /* KEY_??? */"
+#endif
+			  ,
 			  NULL,
 		  0UL);
 
@@ -564,17 +614,17 @@ main(void)
 			(kernel_ulong_t) 0xfeedf157badc0dedLLU, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_DESCRIBE),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) 9, (uintptr_t) bogus_buf1, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) 9, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_DESCRIBE),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) 256, (uintptr_t) bogus_buf2, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) 256, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_DESCRIBE),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) -4, (uintptr_t) bogus_buf2, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) -4, NULL, ksize_fmt,
 		  0UL);
@@ -582,7 +632,7 @@ main(void)
 
 	/* KEYCTL_CLEAR */
 	do_keyctl(ARG_STR(KEYCTL_CLEAR),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_CLEAR),
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
@@ -598,14 +648,14 @@ main(void)
 	/* KEYCTL_LINK */
 	do_keyctl(ARG_STR(KEYCTL_LINK),
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_LINK),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(int32_t), bogus_key2, NULL, "%d",
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_LINK),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(kernel_ulong_t), bogus_key3, bogus_key3_str, NULL,
 		  0UL);
 
@@ -613,14 +663,14 @@ main(void)
 	/* KEYCTL_UNLINK */
 	do_keyctl(ARG_STR(KEYCTL_UNLINK),
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_UNLINK),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(int32_t), bogus_key2, NULL, "%d",
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_UNLINK),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(kernel_ulong_t), bogus_key3, bogus_key3_str, NULL,
 		  0UL);
 
@@ -629,7 +679,7 @@ main(void)
 	buf_in_arg = true;
 
 	do_keyctl(ARG_STR(KEYCTL_SEARCH),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(char *), ARG_STR(NULL), NULL,
 		  sizeof(char *), ARG_STR(NULL), NULL,
 		  sizeof(int32_t), 0, NULL, "%d");
@@ -637,7 +687,7 @@ main(void)
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
 		  sizeof(char *), (char *) 0xfffffacefffffeedULL, NULL, ptr_fmt,
 		  sizeof(char *), (char *) 0xfffff00dfffff157ULL, NULL, ptr_fmt,
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_USER_SESSION_KEYRING),
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_USER_SESSION_KEYRING),
 			  NULL);
 	do_keyctl(ARG_STR(KEYCTL_SEARCH),
 		  sizeof(int32_t), bogus_key2, NULL, "%d",
@@ -658,7 +708,7 @@ main(void)
 	/* KEYCTL_RESTRICT_KEYRING */
 
 	do_keyctl(ARG_STR(KEYCTL_RESTRICT_KEYRING),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_REQUESTOR_KEYRING), NULL,
 		  sizeof(char *), ARG_STR(NULL), NULL,
 		  sizeof(char *), ARG_STR(NULL), NULL,
 			  NULL);
@@ -706,17 +756,17 @@ main(void)
 			(kernel_ulong_t) 0xfeedf157badc0dedLLU, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_READ),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) 9, (uintptr_t) bogus_buf1, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) 9, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_READ),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) 256, (uintptr_t) bogus_buf2, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) 256, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_READ),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) -4, (uintptr_t) bogus_buf2, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) -4, NULL, ksize_fmt,
 		  0UL);
@@ -752,11 +802,11 @@ main(void)
 			ksize_fmt,
 		  sizeof(kernel_ulong_t), bogus_key3, bogus_key3_str, NULL);
 	do_keyctl(ARG_STR(KEYCTL_INSTANTIATE),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  sizeof(long_type_str), long_desc, NULL, NULL,
 		  sizeof(kernel_ulong_t),
 			(kernel_ulong_t) sizeof(long_type_str), NULL, ksize_fmt,
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL);
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL);
 
 	buf_in_arg = false;
 
@@ -789,7 +839,7 @@ main(void)
 
 	/* KEYCTL_SET_REQKEY_KEYRING */
 	do_keyctl(ARG_STR(KEYCTL_SET_REQKEY_KEYRING),
-		  sizeof(int32_t), ARG_STR(KEY_REQKEY_DEFL_NO_CHANGE), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_REQKEY_DEFL_NO_CHANGE), NULL,
 		  0UL);
 	/*
 	 * Keep it commented out until proper way of faking syscalls is not
@@ -797,11 +847,15 @@ main(void)
 	 */
 	/* do_keyctl(ARG_STR(KEYCTL_SET_REQKEY_KEYRING),
 		  sizeof(int32_t),
-		  ARG_STR(KEY_REQKEY_DEFL_REQUESTOR_KEYRING), NULL, 0UL); */
+		  XARG_STR(KEY_REQKEY_DEFL_REQUESTOR_KEYRING), NULL, 0UL); */
 	do_keyctl(ARG_STR(KEYCTL_SET_REQKEY_KEYRING),
 		  sizeof(kernel_ulong_t),
 		  (kernel_ulong_t) 0xfeedf157badc0dedLLU,
-		  "0xbadc0ded /* KEY_REQKEY_DEFL_??? */", NULL, 0UL);
+		  "-1159983635"
+#if !XLAT_RAW
+		  " /* KEY_REQKEY_DEFL_??? */"
+#endif
+		  , NULL, 0UL);
 
 
 	/* KEYCTL_SET_TIMEOUT */
@@ -823,7 +877,7 @@ main(void)
 
 	/* KEYCTL_ASSUME_AUTHORITY */
 	do_keyctl(ARG_STR(KEYCTL_ASSUME_AUTHORITY),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_ASSUME_AUTHORITY),
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
@@ -849,17 +903,17 @@ main(void)
 			(kernel_ulong_t) 0xfeedf157badc0dedLLU, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_GET_SECURITY),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) 9, (uintptr_t) bogus_buf1, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) 9, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_GET_SECURITY),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) 256, (uintptr_t) bogus_buf2, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) 256, NULL, ksize_fmt,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_GET_SECURITY),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_THREAD_KEYRING), NULL,
 		  (size_t) -4, (uintptr_t) bogus_buf2, NULL, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) -4, NULL, ksize_fmt,
 		  0UL);
@@ -894,7 +948,7 @@ main(void)
 		  sizeof(kernel_ulong_t),
 			(kernel_ulong_t) 0xfeedf157badc0dedLLU, "3134983661",
 			NULL,
-		  sizeof(uint32_t), ARG_STR(ENODEV), NULL,
+		  sizeof(uint32_t), XARG_STR(ENODEV), NULL,
 		  sizeof(kernel_ulong_t), bogus_key3, bogus_key3_str, NULL);
 
 
@@ -924,16 +978,16 @@ main(void)
 			  ksize_fmt,
 		  sizeof(kernel_ulong_t), bogus_key3, bogus_key3_str, NULL);
 	do_keyctl(ARG_STR(KEYCTL_INSTANTIATE_IOV),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  sizeof(key_iov), key_iov, key_iov_str2, NULL,
 		  sizeof(kernel_ulong_t), (kernel_ulong_t) IOV_SIZE, NULL,
 			ksize_fmt,
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL);
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL);
 
 
 	/* KEYCTL_INVALIDATE */
 	do_keyctl(ARG_STR(KEYCTL_INVALIDATE),
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_INVALIDATE),
 		  sizeof(int32_t), bogus_key1, NULL, "%d",
@@ -949,7 +1003,7 @@ main(void)
 	/* KEYCTL_GET_PERSISTENT */
 	do_keyctl(ARG_STR(KEYCTL_GET_PERSISTENT),
 		  sizeof(uid_t), ARG_STR(-1), NULL,
-		  sizeof(int32_t), ARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
+		  sizeof(int32_t), XARG_STR(KEY_SPEC_GROUP_KEYRING), NULL,
 		  0UL);
 	do_keyctl(ARG_STR(KEYCTL_GET_PERSISTENT),
 		  sizeof(uid_t), 2718281828U, NULL, "%u",

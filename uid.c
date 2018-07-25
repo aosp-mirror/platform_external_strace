@@ -71,14 +71,14 @@
 
 SYS_FUNC(getuid)
 {
-	return RVAL_UDECIMAL | RVAL_DECODED;
+	return RVAL_DECODED;
 }
 
 SYS_FUNC(setfsuid)
 {
 	printuid("", tcp->u_arg[0]);
 
-	return RVAL_UDECIMAL | RVAL_DECODED;
+	return RVAL_DECODED;
 }
 
 SYS_FUNC(setuid)
@@ -180,7 +180,7 @@ print_groups(struct tcb *const tcp, const unsigned int len,
 
 	uid_t gid;
 	print_array(tcp, addr, len, &gid, sizeof(gid),
-		    umoven_or_printaddr, print_gid, 0);
+		    tfetch_mem, print_gid, 0);
 }
 
 SYS_FUNC(setgroups)
