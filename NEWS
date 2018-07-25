@@ -1,3 +1,109 @@
+Noteworthy changes in release 4.23 (2018-06-14)
+===============================================
+
+* Changes in behaviour
+  * On x32 personality, 64-bit syscalls (such as readv) are now shown with "#64"
+    suffix instead of "64:" prefix.  Unlike the old names, these new names
+    can be used in syscall qualification expressions.
+  * Changed error number output format: error numbers are consistently
+    printed as "-1 ECONST (Error description)"
+    for known errors and as "-1 (errno 123)" for unknown errors,
+    regardless of -e raw qualification settings.  One can specify
+    -X raw for displaying raw error numbers unconditionally.
+  * Unfetchable addresses inside arrays are now printed as comments.
+  * Obsolete IA-32 mode syscall names are no longer printed on ia64.
+
+* Improvements
+  * Implemented libdw backend for -k option, configured at build time
+    using --with-libdw option.
+    Whether -k option is compiled is now configured at build time
+    using --enable-stacktrace option.
+  * Added -X option for configuring xlat output formatting (addresses
+    Debian bug #692915).
+  * Added support for personality designation ("64", "32", or "x32") to syscall
+    qualifications in -e trace expressions.
+  * Implemented injection of syscalls with no side effects as an alternative
+    to injection of an invalid syscall (-e inject=SET:syscall= expression).
+  * Improved support for reproducible builds (addresses Debian bug #896016).
+  * Implemented decoding of BPF_PROG_QUERY and BPF_RAW_TRACEPOINT_OPEN bpf
+    syscall commands.
+  * Implemented decoding of INOTIFY_IOC_SETNEXTWD and PERF_EVENT_IOC_* ioctl
+    commands.
+  * Implemented decoding of PR_GET_SPECULATION_CTRL and PR_SET_SPECULATION_CTRL
+    prctl syscall options.
+  * Enhanced decoding of bpf, getsockopt, setsockopt, and socket syscalls.
+  * Enhanced decoding of NETLINK_KOBJECT_UEVENT and NETLINK_ROUTE protocols.
+  * Enhanced decoding of *_DIAG_MEMINFO netlink attributes.
+  * Enhanced decoding of BTRFS_*, FS_IOC_*, SIOCGIFHWADDR, and SIOCSIFHWADDR
+    ioctl commands.
+  * Enhanced decoding of AF_BLUETOOTH socket addresses.
+  * Implemented decoding of io_pgetevent syscall.
+  * Wired up rseq syscall.
+  * Updated lists of ADJ_*, BPF_*, BPF_F_*, BPF_PROG_TYPE_*, ETH_P_*, FPE_*,
+    IFF_*, IPPROTO_*, MAP_*, MS_*, MSG_*, NETLINK_*, PACKET_*, PROT_*, SCTP_*,
+    SECCOMP_FILTER_FLAG_*, SEGV_*, SEM_*, SHM_*, SW_*, V4L2_CID_*,
+    V4L2_CTRL_CLASS_*, and V4L2_PIX_FMT_* constants.
+  * Updated lists of ioctl commands from Linux 4.17.
+
+* Bug fixes
+  * Fixed decoding of msgtyp argument of msgrcv syscall.
+  * Fixed fallback definitions for F_*, MCL_*, MSG_ZEROCOPY, SI_*,
+    and SOL_SOCKET constants.
+  * Fixed -e trace=%pure expression on mips.
+
+Noteworthy changes in release 4.22 (2018-04-05)
+===============================================
+
+* Changes in infrastructure
+  * The mailing list was moved to strace-devel@lists.strace.io.
+  * SourceForge git repository
+    (https://sourceforge.net/p/strace/code/ci/master/tree/) is no longer
+    maintained.  Please use GitLab (https://gitlab.com/strace/strace/)
+    or GitHub (https://github.com/strace/strace/) repository instead.
+
+* Changes in behaviour
+  * When printing string data, '8' and '9' following an octal escape sequence
+    no longer lead to unabbreviated octal escape sequence output, as they used
+    to do.
+  * Angle brackets are now printed as octal number escape sequences
+    in the output of paths associated with file descriptors.
+  * Data dump for write syscalls (-e write) is performed regardless
+    of successfulness of these syscall (addresses Debian bug #436284).
+  * -r and -t options are now affect output independently.  Previously,
+    -r option led to ignoring of the -t option (addresses Debian bug #466195).
+
+* Improvements
+  * Implemented delay injection (-e inject=SET:delay_enter= and
+    -e inject=SET:delay_exit= options).
+  * Added -A option for opening output files in append mode
+    (addresses Debian bug #528488).
+  * IPv6 addresses shown in socket information in -yy mode are now printed
+    in brackets.
+  * Enhanced decoding of bpf, prctl and ptrace syscalls.
+  * Enhanced decoding of BTRFS_IOC_INO_PATHS, BTRFS_IOC_LOGICAL_INO, and PTP_*
+    ioctl commands.
+  * Enhanced NETLINK_ROUTE protocol decoding.
+  * Updated lists of signal codes.
+  * Updated lists of BPF_*, BTN_*, ETH_P_*, INET_DIAG_BC_*, KEY_*, POLL*, RWF_*,
+    SCHED_FLAG_*, SCTP_* and error constants.
+  * Implemented block/character device number printing in -yy mode.
+  * Known pixel/SDR format names are printed as comments for pixelformat fields
+    in v4l2 structures.
+  * Enhanced decoding of kern_features syscall.
+  * Enhanced NETLINK_NETFILTER netlink protocol decoder.
+  * Optimized handling of large number of tracees.
+  * Improved wall clock time measurement in syscall count statistics
+    (-c -w option).
+  * Extended the range of allowed values in -e inject=...:retval= expression.
+  * Added i18n support.
+  * Updated lists of ioctl commands from Linux 4.16.
+  * Enhanced manual page.
+
+* Bug fixes
+  * Fixed build on m68k.
+  * Fixed v4l2 pixelformat decoding on big-endian architectures.
+  * Fixed -O option.
+
 Noteworthy changes in release 4.21 (2018-02-13)
 ===============================================
 

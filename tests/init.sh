@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Copyright (c) 2011-2016 Dmitry V. Levin <ldv@altlinux.org>
-# Copyright (c) 2011-2017 The strace developers.
+# Copyright (c) 2011-2018 The strace developers.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+export LC_ALL=C
 ME_="${0##*/}"
 LOG="log"
 OUT="out"
@@ -229,6 +230,17 @@ run_strace_match_diff()
 	match_diff "$LOG" "$EXP"
 }
 
+# Usage: run_strace_match_grep [args to run_strace]
+run_strace_match_grep()
+{
+	args="$*"
+	[ -n "$args" -a -z "${args##*-e trace=*}" ] ||
+		set -- -e trace="$NAME" "$@"
+	run_prog > /dev/null
+	run_strace "$@" $args > "$EXP"
+	match_grep "$LOG" "$EXP"
+}
+
 # Print kernel version code.
 # usage: kernel_version_code $(uname -r)
 kernel_version_code()
@@ -236,7 +248,7 @@ kernel_version_code()
 	(
 		set -f
 		IFS=.
-		set -- $1
+		set -- $1 0 0
 		v1="${1%%[!0-9]*}" && [ -n "$v1" ] || v1=0
 		v2="${2%%[!0-9]*}" && [ -n "$v2" ] || v2=0
 		v3="${3%%[!0-9]*}" && [ -n "$v3" ] || v3=0
