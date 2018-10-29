@@ -31,12 +31,16 @@ DIAG_POP_IGNORE_TAUTOLOGICAL_COMPARE
 #else
 # define V4L2_CID_USER_TI_VPE_BASE (V4L2_CID_BASE + 0x1050)
 #endif
+#ifndef STRACE_WORKAROUND_FOR_V4L2_CID_USER_IMX_BASE
+# define STRACE_WORKAROUND_FOR_V4L2_CID_USER_IMX_BASE
+# undef V4L2_CID_USER_IMX_BASE
+#endif
 #if defined(V4L2_CID_USER_IMX_BASE) || (defined(HAVE_DECL_V4L2_CID_USER_IMX_BASE) && HAVE_DECL_V4L2_CID_USER_IMX_BASE)
 DIAG_PUSH_IGNORE_TAUTOLOGICAL_COMPARE
-static_assert((V4L2_CID_USER_IMX_BASE) == ((V4L2_CID_BASE + 0x1090)), "V4L2_CID_USER_IMX_BASE != (V4L2_CID_BASE + 0x1090)");
+static_assert((V4L2_CID_USER_IMX_BASE) == ((V4L2_CID_BASE + 0x10b0)), "V4L2_CID_USER_IMX_BASE != (V4L2_CID_BASE + 0x10b0)");
 DIAG_POP_IGNORE_TAUTOLOGICAL_COMPARE
 #else
-# define V4L2_CID_USER_IMX_BASE (V4L2_CID_BASE + 0x1090)
+# define V4L2_CID_USER_IMX_BASE (V4L2_CID_BASE + 0x10b0)
 #endif
 #if defined(V4L2_CID_MPEG_BASE) || (defined(HAVE_DECL_V4L2_CID_MPEG_BASE) && HAVE_DECL_V4L2_CID_MPEG_BASE)
 DIAG_PUSH_IGNORE_TAUTOLOGICAL_COMPARE
@@ -146,6 +150,21 @@ const struct xlat v4l2_control_id_bases[] = {
  XLAT(V4L2_CID_USER_MEYE_BASE),
  XLAT(V4L2_CID_USER_BTTV_BASE),
  XLAT(V4L2_CID_USER_TI_VPE_BASE),
+#ifndef STRACE_WORKAROUND_FOR_V4L2_CID_USER_IMX_BASE
+# define STRACE_WORKAROUND_FOR_V4L2_CID_USER_IMX_BASE
+/*
+* Linux kernel commit v4.18-rc2-106-g421860b9d47053badce4b247576fa48df9ab4c48
+* has changed the value of V4L2_CID_USER_IMX_BASE constant introduced
+* by commit v4.13-rc1~141^2~121 because the old value was already used
+* by V4L2_CID_USER_MAX217X_BASE.
+* This is of course an ABI breakage that affects Linux kernels starting
+* with 4.13 and up to 4.18, as well as their LTS derivatives.
+* Since the imx driver didn't provide any public control ID definitions,
+* it looks like the best way to handle this situation is to pretend that
+* the old value of V4L2_CID_USER_IMX_BASE didn't exist.
+*/
+# undef V4L2_CID_USER_IMX_BASE
+#endif
  XLAT(V4L2_CID_USER_IMX_BASE),
  XLAT(V4L2_CID_MPEG_BASE),
  XLAT(V4L2_CID_MPEG_CX2341X_BASE),
