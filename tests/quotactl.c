@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2016 Eugene Syromyatnikov <evgsyr@gmail.com>
  * Copyright (c) 2016 Dmitry V. Levin <ldv@altlinux.org>
- * Copyright (c) 2016-2017 The strace developers.
+ * Copyright (c) 2016-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,7 +83,7 @@ print_dqblk(long rc, void *ptr, void *arg)
 	struct if_dqblk *db = ptr;
 	long out_arg = (long) arg;
 
-	if (((rc != 0) && out_arg) || (out_arg > 1)) {
+	if (((rc < 0) && out_arg) || (out_arg > 1)) {
 		printf("%p", db);
 		return;
 	}
@@ -113,7 +113,7 @@ print_nextdqblk(long rc, void *ptr, void *arg)
 	struct if_nextdqblk *db = ptr;
 	long out_arg = (long) arg;
 
-	if (((rc != 0) && out_arg) || (out_arg > 1)) {
+	if (((rc < 0) && out_arg) || (out_arg > 1)) {
 		printf("%p", db);
 		return;
 	}
@@ -146,7 +146,7 @@ print_dqinfo(long rc, void *ptr, void *arg)
 	struct if_dqinfo *di = ptr;
 	long out_arg = (long) arg;
 
-	if (((rc != 0) && out_arg) || (out_arg > 1)) {
+	if (((rc < 0) && out_arg) || (out_arg > 1)) {
 		printf("%p", di);
 		return;
 	}
@@ -161,6 +161,38 @@ print_dqinfo(long rc, void *ptr, void *arg)
 	printf("}");
 }
 
+void
+print_dqfmt(long rc, void *ptr, void *arg)
+{
+	uint32_t *fmtval = ptr;
+	long out_arg = (long) arg;
+	const char *fmtstr;
+
+	if (((rc < 0) && out_arg) || (out_arg > 1)) {
+		printf("%p", fmtval);
+		return;
+	}
+	printf("[");
+	switch (*fmtval) {
+	case 1:
+		fmtstr = "QFMT_VFS_OLD";
+		break;
+	case 2:
+		fmtstr = "QFMT_VFS_V0";
+		break;
+	case 3:
+		fmtstr = "QFMT_OCFS2";
+		break;
+	case 4:
+		fmtstr = "QFMT_VFS_V1";
+		break;
+	default:
+		printf("%#x /* QFMT_VFS_??? */]", *fmtval);
+		return;
+	}
+	printf("%s]", fmtstr);
+}
+
 
 int
 main(void)
@@ -171,14 +203,14 @@ main(void)
 	char bogus_special_str[sizeof(void *) * 2 + sizeof("0x")];
 	char unterminated_str[sizeof(void *) * 2 + sizeof("0x")];
 
-	long rc;
+	static char invalid_cmd_str[1024];
+	static char invalid_id_str[1024];
 	char *unterminated = tail_memdup(unterminated_data,
 					 sizeof(unterminated_data));
 	TAIL_ALLOC_OBJECT_CONST_PTR(struct if_dqblk, dqblk);
 	TAIL_ALLOC_OBJECT_CONST_PTR(struct if_dqinfo, dqinfo);
 	TAIL_ALLOC_OBJECT_CONST_PTR(uint32_t, fmt);
 	TAIL_ALLOC_OBJECT_CONST_PTR(struct if_nextdqblk, nextdqblk);
-
 
 	snprintf(bogus_special_str, sizeof(bogus_special_str), "%p",
 		bogus_special);
@@ -188,16 +220,16 @@ main(void)
 
 	/* Invalid commands */
 
-	rc = syscall(__NR_quotactl, bogus_cmd, bogus_special, bogus_id,
-		     bogus_addr);
-	printf("quotactl(QCMD(%#x /* Q_??? */, %#x /* ???QUOTA */)"
-	       ", %p, %u, %p) = %s\n",
-	       QCMD_CMD(bogus_cmd), QCMD_TYPE(bogus_cmd),
-	       bogus_special, bogus_id, bogus_addr, sprintrc(rc));
+	snprintf(invalid_cmd_str, sizeof(invalid_cmd_str),
+		 "QCMD(%#x /* Q_??? */, %#x /* ???QUOTA */)",
+		 QCMD_CMD(bogus_cmd), QCMD_TYPE(bogus_cmd));
+	check_quota(CQF_NONE, bogus_cmd, invalid_cmd_str,
+		    bogus_special, bogus_special_str, bogus_id, bogus_addr);
 
-	rc = syscall(__NR_quotactl, 0, NULL, -1, NULL);
-	printf("quotactl(QCMD(0 /* Q_??? */, USRQUOTA), NULL, -1, NULL) = %s\n",
-	       sprintrc(rc));
+	snprintf(invalid_cmd_str, sizeof(invalid_cmd_str),
+		 "QCMD(0 /* Q_??? */, USRQUOTA)");
+	check_quota(CQF_ADDR_STR, 0, invalid_cmd_str,
+		    ARG_STR(NULL), -1, ARG_STR(NULL));
 
 
 	/* Q_QUOTAON */
@@ -207,12 +239,14 @@ main(void)
 		    ARG_STR("/dev/bogus/"), ARG_STR(QFMT_VFS_OLD),
 		    ARG_STR("/tmp/bogus/"));
 
-	rc = syscall(__NR_quotactl, QCMD(Q_QUOTAON, 0xfacefeed), bogus_dev,
-		     bogus_id, bogus_addr);
-	printf("quotactl(QCMD(Q_QUOTAON, %#x /* ???QUOTA */)"
-	       ", %s, %#x /* QFMT_VFS_??? */, %p) = %s\n",
-	       QCMD_TYPE(QCMD(Q_QUOTAON, 0xfacefeed)),
-	       bogus_dev_str, bogus_id, bogus_addr, sprintrc(rc));
+	snprintf(invalid_cmd_str, sizeof(invalid_cmd_str),
+		 "QCMD(Q_QUOTAON, %#x /* ???QUOTA */)",
+		 QCMD_TYPE(QCMD(Q_QUOTAON, 0xfacefeed)));
+	snprintf(invalid_id_str, sizeof(invalid_id_str),
+		 "%#x /* QFMT_VFS_??? */", bogus_id);
+	check_quota(CQF_ID_STR, QCMD(Q_QUOTAON, 0xfacefeed),
+		    invalid_cmd_str, bogus_dev, bogus_dev_str,
+		    bogus_id, invalid_id_str, bogus_addr);
 
 
 	/* Q_QUOTAOFF */
@@ -238,7 +272,7 @@ main(void)
 		    (intptr_t) 1);
 
 	check_quota(CQF_ADDR_CB, ARG_STR(QCMD(Q_GETQUOTA, GRPQUOTA)),
-		    ARG_STR(NULL), -1, dqblk, print_dqblk, (intptr_t) 2);
+		    ARG_STR(NULL), -1, dqblk, print_dqblk, (intptr_t) 1);
 
 
 	/* Q_GETNEXTQUOTA */
@@ -269,7 +303,7 @@ main(void)
 	check_quota(CQF_ID_SKIP | CQF_ADDR_CB,
 		    ARG_STR(QCMD(Q_GETINFO, GRPQUOTA)),
 		    bogus_special, bogus_special_str, dqinfo,
-		    print_dqinfo, (intptr_t) 2);
+		    print_dqinfo, (intptr_t) 1);
 
 	/* Q_SETINFO */
 
@@ -294,9 +328,14 @@ main(void)
 	check_quota(CQF_ID_SKIP,
 		    ARG_STR(QCMD(Q_GETFMT, USRQUOTA)),
 		    unterminated, unterminated_str, fmt + 1);
-	check_quota(CQF_ID_SKIP,
+	check_quota(CQF_ID_SKIP | CQF_ADDR_CB,
 		    ARG_STR(QCMD(Q_GETFMT, GRPQUOTA)),
-		    ARG_STR("/dev/sda1"), fmt);
+		    ARG_STR("/dev/sda1"), fmt, print_dqfmt, (uintptr_t) 1);
+	/* Try to check valid quota format */
+	*fmt = QFMT_VFS_OLD;
+	check_quota(CQF_ID_SKIP | CQF_ADDR_CB,
+		    ARG_STR(QCMD(Q_GETFMT, GRPQUOTA)),
+		    ARG_STR("/dev/sda1"), fmt, print_dqfmt, (uintptr_t) 1);
 
 
 	/* Q_SYNC */

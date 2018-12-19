@@ -257,6 +257,13 @@ DIAG_POP_IGNORE_TAUTOLOGICAL_COMPARE
 #else
 # define SOL_TLS 282
 #endif
+#if defined(SOL_XDP) || (defined(HAVE_DECL_SOL_XDP) && HAVE_DECL_SOL_XDP)
+DIAG_PUSH_IGNORE_TAUTOLOGICAL_COMPARE
+static_assert((SOL_XDP) == (283), "SOL_XDP != 283");
+DIAG_POP_IGNORE_TAUTOLOGICAL_COMPARE
+#else
+# define SOL_XDP 283
+#endif
 #if defined __alpha__ || defined __hppa__ || defined __mips__ || defined __sparc__
 #if defined(SOL_SOCKET) || (defined(HAVE_DECL_SOL_SOCKET) && HAVE_DECL_SOL_SOCKET)
 DIAG_PUSH_IGNORE_TAUTOLOGICAL_COMPARE
@@ -311,6 +318,7 @@ const struct xlat socketlayers[] = {
  XLAT(SOL_NFC),
  XLAT(SOL_KCM),
  XLAT(SOL_TLS),
+ XLAT(SOL_XDP),
 #if defined __alpha__ || defined __hppa__ || defined __mips__ || defined __sparc__
  XLAT(SOL_SOCKET),
 #endif

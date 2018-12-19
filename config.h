@@ -1,6 +1,9 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define for the AArch64 architecture. */
+/* #undef AARCH64 */
+
 /* Define if building universal (internal helper macro) */
 /* #undef AC_APPLE_UNIVERSAL_BUILD */
 
@@ -51,9 +54,6 @@
 
 /* Define to 1 if you have the `be64toh' function. */
 /* #undef HAVE_BE64TOH */
-
-/* Define to 1 if you have BLKGETSIZE64. */
-#define HAVE_BLKGETSIZE64 1
 
 /* Define to 1 if you have the <bluetooth/bluetooth.h> header file. */
 /* #undef HAVE_BLUETOOTH_BLUETOOTH_H */
@@ -408,7 +408,7 @@
 
 /* Define to 1 if you have the declaration of `sys_errlist', and to 0 if you
    don't. */
-#define HAVE_DECL_SYS_ERRLIST 0
+#define HAVE_DECL_SYS_ERRLIST 1
 
 /* Define to 1 if you have the declaration of `TCA_STAB_DATA', and to 0 if you
    don't. */
@@ -682,7 +682,7 @@
 #define HAVE_FALLOCATE 1
 
 /* Define to 1 if you have the `fanotify_mark' function. */
-/* #undef HAVE_FANOTIFY_MARK */
+#define HAVE_FANOTIFY_MARK 1
 
 /* Define to 1 if you have the `fopen64' function. */
 #define HAVE_FOPEN64 1
@@ -691,7 +691,7 @@
 #define HAVE_FORK 1
 
 /* Define to 1 if you have the `fputs_unlocked' function. */
-/* #undef HAVE_FPUTS_UNLOCKED */
+#define HAVE_FPUTS_UNLOCKED 1
 
 /* Define to 1 if you have the `fstatat' function. */
 #define HAVE_FSTATAT 1
@@ -715,7 +715,7 @@
 #define HAVE_ICONV_H 1
 
 /* Define to 1 if you have the `iconv_open' function. */
-/* #undef HAVE_ICONV_OPEN */
+#define HAVE_ICONV_OPEN 1
 
 /* Define to 1 if you have the `if_indextoname' function. */
 #define HAVE_IF_INDEXTONAME 1
@@ -886,16 +886,16 @@
 /* #undef HAVE_M32_MPERS */
 
 /* Define to 1 if m32 has the type 'struct stat'. */
-/* #undef HAVE_M32_STRUCT_STAT */
+#define HAVE_M32_STRUCT_STAT 1
 
 /* Define to 1 if m32 has the type 'struct stat64'. */
-/* #undef HAVE_M32_STRUCT_STAT64 */
+#define HAVE_M32_STRUCT_STAT64 1
 
 /* Define to 1 if 'st_mtime_nsec' is a member of m32 'struct stat64'. */
-/* #undef HAVE_M32_STRUCT_STAT64_ST_MTIME_NSEC */
+#define HAVE_M32_STRUCT_STAT64_ST_MTIME_NSEC 1
 
 /* Define to 1 if 'st_mtime_nsec' is a member of m32 'struct stat'. */
-/* #undef HAVE_M32_STRUCT_STAT_ST_MTIME_NSEC */
+#define HAVE_M32_STRUCT_STAT_ST_MTIME_NSEC 1
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
@@ -907,7 +907,7 @@
 /* #undef HAVE_MX32_MPERS */
 
 /* Define to 1 if mx32 has the type 'struct stat'. */
-/* #undef HAVE_MX32_STRUCT_STAT */
+#define HAVE_MX32_STRUCT_STAT 1
 
 /* Define to 1 if mx32 has the type 'struct stat64'. */
 /* #undef HAVE_MX32_STRUCT_STAT64 */
@@ -916,7 +916,7 @@
 /* #undef HAVE_MX32_STRUCT_STAT64_ST_MTIME_NSEC */
 
 /* Define to 1 if 'st_mtime_nsec' is a member of mx32 'struct stat'. */
-/* #undef HAVE_MX32_STRUCT_STAT_ST_MTIME_NSEC */
+#define HAVE_MX32_STRUCT_STAT_ST_MTIME_NSEC 1
 
 /* Define to 1 if you have the <netinet/sctp.h> header file. */
 /* #undef HAVE_NETINET_SCTP_H */
@@ -953,6 +953,9 @@
 
 /* Define to 1 if you have the `readahead' function. */
 #define HAVE_READAHEAD 1
+
+/* Define to 1 if the system has the type `s390_compat_regs'. */
+/* #undef HAVE_S390_COMPAT_REGS */
 
 /* Define to 1 if you have the <scsi/sg.h> header file. */
 #define HAVE_SCSI_SG_H 1
@@ -1015,7 +1018,7 @@
 #define HAVE_STRUCT_BPF_MAP_INFO_ID 1
 
 /* Define to 1 if `ifindex' is a member of `struct bpf_map_info'. */
-/* #undef HAVE_STRUCT_BPF_MAP_INFO_IFINDEX */
+#define HAVE_STRUCT_BPF_MAP_INFO_IFINDEX 1
 
 /* Define to 1 if `key_size' is a member of `struct bpf_map_info'. */
 #define HAVE_STRUCT_BPF_MAP_INFO_KEY_SIZE 1
@@ -1045,7 +1048,7 @@
 #define HAVE_STRUCT_BPF_PROG_INFO_ID 1
 
 /* Define to 1 if `ifindex' is a member of `struct bpf_prog_info'. */
-/* #undef HAVE_STRUCT_BPF_PROG_INFO_IFINDEX */
+#define HAVE_STRUCT_BPF_PROG_INFO_IFINDEX 1
 
 /* Define to 1 if `jited_prog_insns' is a member of `struct bpf_prog_info'. */
 #define HAVE_STRUCT_BPF_PROG_INFO_JITED_PROG_INSNS 1
@@ -1129,7 +1132,7 @@
 #define HAVE_STRUCT_DCBMSG 1
 
 /* Define to 1 if the system has the type `struct fib_rule_port_range'. */
-/* #undef HAVE_STRUCT_FIB_RULE_PORT_RANGE */
+#define HAVE_STRUCT_FIB_RULE_PORT_RANGE 1
 
 /* Define to 1 if the system has the type `struct fib_rule_uid_range'. */
 #define HAVE_STRUCT_FIB_RULE_UID_RANGE 1
@@ -1178,6 +1181,9 @@
 
 /* Define to 1 if the system has the type `struct keyctl_kdf_params'. */
 #define HAVE_STRUCT_KEYCTL_KDF_PARAMS 1
+
+/* Define to 1 if the system has the type `struct kvm_cpuid2'. */
+/* #undef HAVE_STRUCT_KVM_CPUID2 */
 
 /* Define to 1 if the system has the type `struct kvm_regs'. */
 #define HAVE_STRUCT_KVM_REGS 1
@@ -1284,7 +1290,7 @@
 #define HAVE_STRUCT_PTP_SYS_OFFSET 1
 
 /* Define to 1 if the system has the type `struct ptrace_peeksiginfo_args'. */
-#define HAVE_STRUCT_PTRACE_PEEKSIGINFO_ARGS 1
+/* #undef HAVE_STRUCT_PTRACE_PEEKSIGINFO_ARGS */
 
 /* Define to 1 if the system has the type `struct pt_all_user_regs'. */
 /* #undef HAVE_STRUCT_PT_ALL_USER_REGS */
@@ -1356,7 +1362,7 @@
 #define HAVE_STRUCT_TIMEX_TAI 1
 
 /* Define to 1 if `max_beb_per1024' is a member of `struct ubi_attach_req'. */
-/* #undef HAVE_STRUCT_UBI_ATTACH_REQ_MAX_BEB_PER1024 */
+#define HAVE_STRUCT_UBI_ATTACH_REQ_MAX_BEB_PER1024 1
 
 /* Define to 1 if the system has the type `struct user_desc'. */
 /* #undef HAVE_STRUCT_USER_DESC */
@@ -1398,7 +1404,7 @@
 #define HAVE_SYS_EVENTFD_H 1
 
 /* Define to 1 if you have the <sys/fanotify.h> header file. */
-/* #undef HAVE_SYS_FANOTIFY_H */
+#define HAVE_SYS_FANOTIFY_H 1
 
 /* Define to 1 if you have the <sys/ipc.h> header file. */
 #define HAVE_SYS_IPC_H 1
@@ -1446,7 +1452,7 @@
 /* #undef HAVE_UNION_BPF_ATTR_DUMMY */
 
 /* Define to 1 if `expected_attach_type' is a member of `union bpf_attr'. */
-/* #undef HAVE_UNION_BPF_ATTR_EXPECTED_ATTACH_TYPE */
+#define HAVE_UNION_BPF_ATTR_EXPECTED_ATTACH_TYPE 1
 
 /* Define to 1 if `file_flags' is a member of `union bpf_attr'. */
 #define HAVE_UNION_BPF_ATTR_FILE_FLAGS 1
@@ -1503,7 +1509,7 @@
 #define HAVE_UNION_BPF_ATTR_MAP_ID 1
 
 /* Define to 1 if `map_ifindex' is a member of `union bpf_attr'. */
-/* #undef HAVE_UNION_BPF_ATTR_MAP_IFINDEX */
+#define HAVE_UNION_BPF_ATTR_MAP_IFINDEX 1
 
 /* Define to 1 if `map_name' is a member of `union bpf_attr'. */
 #define HAVE_UNION_BPF_ATTR_MAP_NAME 1
@@ -1563,10 +1569,10 @@
 #define HAVE_UNION_BPF_ATTR_QUERY_TARGET_FD 1
 
 /* Define to 1 if `raw_tracepoint.name' is a member of `union bpf_attr'. */
-/* #undef HAVE_UNION_BPF_ATTR_RAW_TRACEPOINT_NAME */
+#define HAVE_UNION_BPF_ATTR_RAW_TRACEPOINT_NAME 1
 
 /* Define to 1 if `raw_tracepoint.prog_fd' is a member of `union bpf_attr'. */
-/* #undef HAVE_UNION_BPF_ATTR_RAW_TRACEPOINT_PROG_FD */
+#define HAVE_UNION_BPF_ATTR_RAW_TRACEPOINT_PROG_FD 1
 
 /* Define to 1 if `start_id' is a member of `union bpf_attr'. */
 #define HAVE_UNION_BPF_ATTR_START_ID 1
@@ -1653,7 +1659,7 @@
 /* #undef M68K */
 
 /* Date */
-#define MANPAGE_DATE "2018-06-13"
+#define MANPAGE_DATE "2018-07-07"
 
 /* Define for the Meta architecture. */
 /* #undef METAG */
@@ -1686,7 +1692,7 @@
 #define PACKAGE_NAME "strace"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "strace 4.23"
+#define PACKAGE_STRING "strace 4.25"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "strace"
@@ -1695,7 +1701,7 @@
 #define PACKAGE_URL "https://strace.io"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.23"
+#define PACKAGE_VERSION "4.25"
 
 /* Define for the PowerPC architecture. */
 /* #undef POWERPC */
@@ -1719,12 +1725,16 @@
 /* #undef SH64 */
 
 /* The size of `kernel_long_t', as computed by sizeof. */
+/* #undef SIZEOF_KERNEL_LONG_T */
 
 /* The size of `long', as computed by sizeof. */
+/* #undef SIZEOF_LONG */
 
 /* The size of `long long', as computed by sizeof. */
+/* #undef SIZEOF_LONG_LONG */
 
 /* The size of `off_t', as computed by sizeof. */
+/* #undef SIZEOF_OFF_T */
 
 /* The size of `struct i64_i32', as computed by sizeof. */
 #define SIZEOF_STRUCT_I64_I32 16
@@ -1776,7 +1786,7 @@
 /* #undef USE_UNWINDER */
 
 /* Version number of package */
-#define VERSION "4.23"
+#define VERSION "4.25"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */

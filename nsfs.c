@@ -2,6 +2,7 @@
  * Support for decoding of NS_* ioctl commands.
  *
  * Copyright (c) 2017 Nikolay Marchuk <marchuk.nikolay.a@gmail.com>
+ * Copyright (c) 2017-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,15 +42,9 @@ nsfs_ioctl(struct tcb *tcp, unsigned int code, kernel_ulong_t arg)
 	case NS_GET_NSTYPE:
 		if (entering(tcp))
 			return 0;
-		if (!syserror(tcp)) {
-			const char *outstr;
-			outstr = xlookup(setns_types, tcp->u_rval);
-			if (outstr) {
-				tcp->auxstr = outstr;
-				return RVAL_IOCTL_DECODED | RVAL_STR;
-			}
-		}
-		return RVAL_IOCTL_DECODED;
+		if (!syserror(tcp))
+			tcp->auxstr = xlookup(setns_types, tcp->u_rval);
+		return RVAL_IOCTL_DECODED | RVAL_STR;
 	case NS_GET_OWNER_UID:
 		if (entering(tcp))
 			return 0;
