@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016 Fabien Siron <fabien.siron@epita.fr>
  * Copyright (c) 2017 JingPiao Chen <chenjingpiao@gmail.com>
- * Copyright (c) 2016-2017 The strace developers.
+ * Copyright (c) 2016-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,8 @@ static const nla_decoder_t netconfmsg_nla_decoders[] = {
 	[NETCONFA_MC_FORWARDING]		= decode_nla_s32,
 	[NETCONFA_PROXY_NEIGH]			= decode_nla_s32,
 	[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]	= decode_nla_s32,
-	[NETCONFA_INPUT]			= decode_nla_s32
+	[NETCONFA_INPUT]			= decode_nla_s32,
+	[NETCONFA_BC_FORWARDING]		= decode_nla_s32,
 };
 
 DECL_NETLINK_ROUTE_DECODER(decode_netconfmsg)

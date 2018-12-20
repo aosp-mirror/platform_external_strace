@@ -101,7 +101,8 @@ decode_nlattr_with_data(struct tcb *const tcp,
 	print_nlattr(nla, table, dflt);
 
 	if (nla_len > NLA_HDRLEN) {
-		const unsigned int idx = size ? nla->nla_type : 0;
+		const unsigned int idx =
+			size ? nla->nla_type & NLA_TYPE_MASK : 0;
 
 		tprints(", ");
 		if (!decoders
@@ -355,6 +356,38 @@ decode_nla_ip_proto(struct tcb *const tcp,
 	};
 
 	return decode_nla_xval(tcp, addr, len, &opts);
+}
+
+bool
+decode_nla_in_addr(struct tcb *const tcp,
+		   const kernel_ulong_t addr,
+		   const unsigned int len,
+		   const void *const opaque_data)
+{
+	struct in_addr in;
+
+	if (len < sizeof(in))
+		return false;
+	else if (!umove_or_printaddr(tcp, addr, &in))
+		print_inet_addr(AF_INET, &in, sizeof(in), NULL);
+
+	return true;
+}
+
+bool
+decode_nla_in6_addr(struct tcb *const tcp,
+		    const kernel_ulong_t addr,
+		    const unsigned int len,
+		    const void *const opaque_data)
+{
+	struct in6_addr in6;
+
+	if (len < sizeof(in6))
+		return false;
+	else if (!umove_or_printaddr(tcp, addr, &in6))
+		print_inet_addr(AF_INET6, &in6, sizeof(in6), NULL);
+
+	return true;
 }
 
 bool

@@ -318,6 +318,9 @@ AC_CHECK_TYPES(m4_normalize([
 	struct ptrace_peeksiginfo_args
 ]),,, [#include <sys/ptrace.h>])
 
+# For kernels that do not have v3.10-rc1~201^2~11
+AC_CHECK_TYPES([s390_compat_regs],,, [#include <asm/ptrace.h>])
+
 AC_CHECK_TYPES(m4_normalize([
 	struct flock,
 	struct flock64,
@@ -575,14 +578,29 @@ AC_CHECK_TYPES(m4_normalize([
 ]),,, [#include <linux/ptp_clock.h>])
 
 AC_CHECK_TYPES(m4_normalize([
+	struct kvm_cpuid2,
 	struct kvm_regs,
 	struct kvm_sregs,
 	struct kvm_userspace_memory_region
 ]),,, [#include <linux/kvm.h>])
 
 saved_CPPFLAGS="$CPPFLAGS"
-CPPFLAGS="$CPPFLAGS -I$srcdir/linux"
+
+AC_CACHE_CHECK([whether <linux/signal.h> can be used along with <signal.h>],
+	       [st_cv_linux_signal],
+	       [AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+#include <signal.h>
+#include <linux/signal.h>]],[])],
+				  [st_cv_linux_signal=yes],
+				  [st_cv_linux_signal=no])])
+if test "x$st_cv_linux_signal" = xno; then
+	mkdir -p linux/linux
+	cp $srcdir/linux/signal.h.in linux/linux/signal.h
+	CPPFLAGS="$CPPFLAGS -Ilinux"
+fi
+
 AC_CHECK_TYPES([struct __aio_sigset],,, [#include <linux/aio_abi.h>])
+
 CPPFLAGS="$saved_CPPFLAGS"
 
 AC_CHECK_HEADERS([linux/btrfs.h], [
@@ -769,15 +787,6 @@ AC_CHECK_MEMBERS(m4_normalize([
 #include <linux/ioctl.h>
 #include <linux/types.h>
 #include <linux/videodev2.h>])
-
-AC_CACHE_CHECK([for BLKGETSIZE64], [ac_cv_have_blkgetsize64],
-	[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
-#include <stdlib.h>
-#include <linux/fs.h>], [return !BLKGETSIZE64;])],
-			   [ac_cv_have_blkgetsize64=yes], [ac_cv_have_blkgetsize64=no])]
-	if test $ac_cv_have_blkgetsize64 = yes; then
-		AC_DEFINE([HAVE_BLKGETSIZE64], [1], [Define to 1 if you have BLKGETSIZE64.])
-	fi)
 
 AC_CHECK_SIZEOF([long])
 SIZEOF_LONG="$ac_cv_sizeof_long"

@@ -82,18 +82,18 @@ test_syscall(const unsigned long nr)
 
 #ifdef LINUX_MIPSO32
 	printf("syscall(%#lx, %#lx, %#lx, %#lx, %#lx, %#lx, %#lx)"
-	       " = %ld ENOSYS (%m)\n", nr | SYSCALL_BIT,
-	       a[0], a[1], a[2], a[3], a[4], a[5], rc);
+	       " = %s\n", nr | SYSCALL_BIT,
+	       a[0], a[1], a[2], a[3], a[4], a[5], sprintrc(rc));
 #else
 	printf("syscall_%#lx(%#llx, %#llx, %#llx, %#llx, %#llx, %#llx)"
-	       " = %ld ENOSYS (%m)\n", nr | SYSCALL_BIT,
+	       " = %s\n", nr | SYSCALL_BIT,
 	       (unsigned long long) a[0],
 	       (unsigned long long) a[1],
 	       (unsigned long long) a[2],
 	       (unsigned long long) a[3],
 	       (unsigned long long) a[4],
 	       (unsigned long long) a[5],
-	       rc);
+	       sprintrc(rc));
 #endif
 }
 
@@ -119,6 +119,7 @@ main(int argc, char *argv[])
 #endif
 
 	test_syscall(ARRAY_SIZE(syscallent));
+	(void) syscallent;	/* workaround for clang bug #33068 */
 
 #ifdef SYS_socket_subcall
 	test_syscall(SYS_socket_subcall + 1);

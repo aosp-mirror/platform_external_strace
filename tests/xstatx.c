@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
- * Copyright (c) 2015-2017 The strace developers.
+ * Copyright (c) 2015-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,10 +64,14 @@ typedef off_t libc_off_t;
 
 # define stat libc_stat
 # define stat64 libc_stat64
+# define statx libc_statx
+# define statx_timestamp libc_statx_timestamp
 # include <fcntl.h>
 # include <sys/stat.h>
-# undef stat
+# undef statx_timestamp
+# undef statx
 # undef stat64
+# undef stat
 
 # undef st_atime
 # undef st_mtime

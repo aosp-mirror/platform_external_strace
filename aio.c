@@ -33,6 +33,8 @@
 #include "print_fields.h"
 #include <linux/aio_abi.h>
 
+#include "xlat/aio_cmds.h"
+
 SYS_FUNC(io_setup)
 {
 	if (entering(tcp))
@@ -56,28 +58,22 @@ enum iocb_sub {
 static enum iocb_sub
 tprint_lio_opcode(unsigned int cmd)
 {
-	static const struct {
-		const char *name;
-		enum iocb_sub sub;
-	} cmds[] = {
-		{ "IOCB_CMD_PREAD", SUB_COMMON },
-		{ "IOCB_CMD_PWRITE", SUB_COMMON },
-		{ "IOCB_CMD_FSYNC", SUB_NONE },
-		{ "IOCB_CMD_FDSYNC", SUB_NONE },
-		{ "IOCB_CMD_PREADX", SUB_NONE },
-		{ "IOCB_CMD_POLL", SUB_NONE },
-		{ "IOCB_CMD_NOOP", SUB_NONE },
-		{ "IOCB_CMD_PREADV", SUB_VECTOR },
-		{ "IOCB_CMD_PWRITEV", SUB_VECTOR },
+	static const enum iocb_sub subs[] = {
+		[IOCB_CMD_PREAD]	= SUB_COMMON,
+		[IOCB_CMD_PWRITE]	= SUB_COMMON,
+		[IOCB_CMD_FSYNC]	= SUB_NONE,
+		[IOCB_CMD_FDSYNC]	= SUB_NONE,
+		[IOCB_CMD_PREADX]	= SUB_NONE,
+		[IOCB_CMD_POLL]		= SUB_NONE,
+		[IOCB_CMD_NOOP]		= SUB_NONE,
+		[IOCB_CMD_PREADV]	= SUB_VECTOR,
+		[IOCB_CMD_PWRITEV]	= SUB_VECTOR,
 	};
 
-	if (cmd < ARRAY_SIZE(cmds)) {
-		tprints(cmds[cmd].name);
-		return cmds[cmd].sub;
-	}
-	tprintf("%u", cmd);
-	tprints_comment("IOCB_CMD_???");
-	return SUB_NONE;
+	printxval_indexn_ex(ARRSZ_PAIR(aio_cmds), cmd, "IOCB_CMD_???",
+			    XLAT_STYLE_FMT_U);
+
+	return cmd < ARRAY_SIZE(subs) ? subs[cmd] : SUB_NONE;
 }
 
 static void
@@ -129,6 +125,8 @@ print_iocb_header(struct tcb *tcp, const struct iocb *cb)
 static void
 print_iocb(struct tcb *tcp, const struct iocb *cb)
 {
+	tprints("{");
+
 	enum iocb_sub sub = print_iocb_header(tcp, cb);
 
 	switch (sub) {
@@ -160,6 +158,8 @@ print_iocb(struct tcb *tcp, const struct iocb *cb)
 	case SUB_NONE:
 		break;
 	}
+
+	tprints("}");
 }
 
 static bool
@@ -174,10 +174,8 @@ print_iocbp(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 		addr = *(kernel_ulong_t *) elem_buf;
 	}
 
-	tprints("{");
 	if (!umove_or_printaddr(tcp, addr, &cb))
 		print_iocb(tcp, &cb);
-	tprints("}");
 
 	return true;
 }

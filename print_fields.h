@@ -135,7 +135,7 @@
 	do {										\
 		STRACE_PRINTF("%s%s=", (prefix_), #field_);				\
 		if (zero_extend_signed_to_ull((where_).field_) == UINT64_MAX)		\
-			print_xlat_ex(UINT64_MAX, "UINT64_MAX", XLAT_STYLE_FMT_U);	\
+			print_xlat_u(UINT64_MAX);					\
 		else									\
 			STRACE_PRINTF("%llu",						\
 				      zero_extend_signed_to_ull((where_).field_));	\
@@ -182,6 +182,18 @@
 #define PRINT_FIELD_INET4_ADDR(prefix_, where_, field_)			\
 	STRACE_PRINTF("%s%s=inet_addr(\"%s\")", (prefix_), #field_,	\
 		      inet_ntoa((where_).field_))
+
+#define PRINT_FIELD_AX25_ADDR(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_ax25_addr(&(where_).field_);			\
+	} while (0)
+
+#define PRINT_FIELD_X25_ADDR(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_x25_addr(&(where_).field_);			\
+	} while (0)
 
 #define PRINT_FIELD_NET_PORT(prefix_, where_, field_)			\
 	STRACE_PRINTF("%s%s=htons(%u)", (prefix_), #field_,		\
