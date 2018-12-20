@@ -54,9 +54,6 @@
 /* Define to 1 if you have the `be64toh' function. */
 #undef HAVE_BE64TOH
 
-/* Define to 1 if you have BLKGETSIZE64. */
-#undef HAVE_BLKGETSIZE64
-
 /* Define to 1 if you have the <bluetooth/bluetooth.h> header file. */
 #undef HAVE_BLUETOOTH_BLUETOOTH_H
 
@@ -956,6 +953,9 @@
 /* Define to 1 if you have the `readahead' function. */
 #undef HAVE_READAHEAD
 
+/* Define to 1 if the system has the type `s390_compat_regs'. */
+#undef HAVE_S390_COMPAT_REGS
+
 /* Define to 1 if you have the <scsi/sg.h> header file. */
 #undef HAVE_SCSI_SG_H
 
@@ -1180,6 +1180,9 @@
 
 /* Define to 1 if the system has the type `struct keyctl_kdf_params'. */
 #undef HAVE_STRUCT_KEYCTL_KDF_PARAMS
+
+/* Define to 1 if the system has the type `struct kvm_cpuid2'. */
+#undef HAVE_STRUCT_KVM_CPUID2
 
 /* Define to 1 if the system has the type `struct kvm_regs'. */
 #undef HAVE_STRUCT_KVM_REGS

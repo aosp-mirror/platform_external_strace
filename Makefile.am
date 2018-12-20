@@ -144,6 +144,7 @@ strace_SOURCES =	\
 	fetch_struct_stat.c \
 	fetch_struct_stat64.c \
 	fetch_struct_statfs.c \
+	fetch_struct_xfs_quotastat.c \
 	file_handle.c	\
 	file_ioctl.c	\
 	filter_qualify.c \
@@ -182,7 +183,6 @@ strace_SOURCES =	\
 	ldt.c		\
 	link.c		\
 	linux/asm_stat.h \
-	linux/linux/signal.h \
 	linux/x32/asm_stat.h \
 	linux/x86_64/asm_stat.h \
 	listen.c	\
@@ -204,6 +204,7 @@ strace_SOURCES =	\
 	msghdr.h	\
 	mtd.c		\
 	native_defs.h	\
+	nbd_ioctl.c	\
 	negated_errno.h	\
 	net.c		\
 	netlink.c       \
@@ -349,6 +350,7 @@ strace_SOURCES =	\
 	v4l2.c		\
 	wait.c		\
 	xattr.c		\
+	xfs_quota_stat.h \
 	xlat.c		\
 	xlat.h		\
 	xmalloc.c	\
@@ -804,6 +806,7 @@ EXTRA_DIST =				\
 	linux/sh64/syscallent.h		\
 	linux/sh64/userent.h		\
 	linux/shuffle_scno.c		\
+	linux/signal.h.in 		\
 	linux/signalent.h		\
 	linux/smc_diag.h		\
 	linux/sock_diag.h		\
@@ -1042,7 +1045,7 @@ CLEANFILES    = $(ioctl_redefs_h) $(ioctlent_h) $(mpers_preproc_files) \
 		ioctl_iocdef.h ioctl_iocdef.i \
 		bpf_attr_check.c native_printer_decls.h native_printer_defs.h \
 		printers.h sen.h sys_func.h
-DISTCLEANFILES = gnu/stubs-32.h gnu/stubs-x32.h
+DISTCLEANFILES = gnu/stubs-32.h gnu/stubs-x32.h linux/linux/signal.h
 
 include scno.am
 
