@@ -54,6 +54,7 @@
 #include "xlat/rtnl_ifla_info_data_tun_attrs.h"
 #include "xlat/rtnl_ifla_port_attrs.h"
 #include "xlat/rtnl_ifla_vf_port_attrs.h"
+#include "xlat/rtnl_ifla_xdp_attached_mode.h"
 #include "xlat/rtnl_ifla_xdp_attrs.h"
 #include "xlat/rtnl_link_attrs.h"
 #include "xlat/snmp_icmp6_stats.h"
@@ -167,7 +168,11 @@ static const nla_decoder_t ifla_brport_nla_decoders[] = {
 	[IFLA_BRPORT_MCAST_FLOOD]		= decode_nla_u8,
 	[IFLA_BRPORT_MCAST_TO_UCAST]		= decode_nla_u8,
 	[IFLA_BRPORT_VLAN_TUNNEL]		= decode_nla_u8,
-	[IFLA_BRPORT_BCAST_FLOOD]		= decode_nla_u8
+	[IFLA_BRPORT_BCAST_FLOOD]		= decode_nla_u8,
+	[IFLA_BRPORT_GROUP_FWD_MASK]		= decode_nla_u16,
+	[IFLA_BRPORT_NEIGH_SUPPRESS]		= decode_nla_u8,
+	[IFLA_BRPORT_ISOLATED]			= decode_nla_u8,
+	[IFLA_BRPORT_BACKUP_PORT]		= decode_nla_ifindex,
 };
 
 static bool
@@ -571,11 +576,31 @@ decode_ifla_xdp_flags(struct tcb *const tcp,
 	return true;
 }
 
+bool
+decode_ifla_xdp_attached(struct tcb *const tcp,
+			 const kernel_ulong_t addr,
+			 const unsigned int len,
+			 const void *const opaque_data)
+{
+	const struct decode_nla_xlat_opts opts = {
+		.xlat = rtnl_ifla_xdp_attached_mode,
+		.xlat_size = ARRAY_SIZE(rtnl_ifla_xdp_attached_mode),
+		.xt = XT_INDEXED,
+		.dflt = "XDP_ATTACHED_???",
+		.size = 1,
+	};
+
+	return decode_nla_xval(tcp, addr, len, &opts);
+}
+
 static const nla_decoder_t ifla_xdp_nla_decoders[] = {
 	[IFLA_XDP_FD]		= decode_nla_fd,
-	[IFLA_XDP_ATTACHED]	= decode_nla_u8,
+	[IFLA_XDP_ATTACHED]	= decode_ifla_xdp_attached,
 	[IFLA_XDP_FLAGS]	= decode_ifla_xdp_flags,
-	[IFLA_XDP_PROG_ID]	= decode_nla_u32
+	[IFLA_XDP_PROG_ID]	= decode_nla_u32,
+	[IFLA_XDP_DRV_PROG_ID]  = decode_nla_u32,
+	[IFLA_XDP_SKB_PROG_ID]  = decode_nla_u32,
+	[IFLA_XDP_HW_PROG_ID]   = decode_nla_u32,
 };
 
 static bool
@@ -737,22 +762,6 @@ decode_ifla_inet6_icmp6_stats(struct tcb *const tcp,
 }
 
 static bool
-decode_ifla_inet6_token(struct tcb *const tcp,
-			const kernel_ulong_t addr,
-			const unsigned int len,
-			const void *const opaque_data)
-{
-	struct in6_addr in6;
-
-	if (len < sizeof(in6))
-		return false;
-	else if (!umove_or_printaddr(tcp, addr, &in6))
-		print_inet_addr(AF_INET6, &in6,	sizeof(in6), NULL);
-
-	return true;
-}
-
-static bool
 decode_ifla_inet6_agm(struct tcb *const tcp,
 		      const kernel_ulong_t addr,
 		      const unsigned int len,
@@ -774,7 +783,7 @@ static const nla_decoder_t ifla_inet6_nla_decoders[] = {
 	[IFLA_INET6_MCAST]		= NULL, /* unused */
 	[IFLA_INET6_CACHEINFO]		= decode_ifla_inet6_cacheinfo,
 	[IFLA_INET6_ICMP6STATS]		= decode_ifla_inet6_icmp6_stats,
-	[IFLA_INET6_TOKEN]		= decode_ifla_inet6_token,
+	[IFLA_INET6_TOKEN]		= decode_nla_in6_addr,
 	[IFLA_INET6_ADDR_GEN_MODE]	= decode_ifla_inet6_agm,
 };
 
@@ -878,6 +887,8 @@ static const nla_decoder_t ifinfomsg_nla_decoders[] = {
 	[IFLA_CARRIER_UP_COUNT]	= decode_nla_u32,
 	[IFLA_CARRIER_DOWN_COUNT]	= decode_nla_u32,
 	[IFLA_NEW_IFINDEX]	= decode_nla_ifindex,
+	[IFLA_MIN_MTU]		= decode_nla_u32,
+	[IFLA_MAX_MTU]		= decode_nla_u32,
 };
 
 DECL_NETLINK_ROUTE_DECODER(decode_ifinfomsg)

@@ -236,6 +236,10 @@ struct tcb {
 
 	struct mmap_cache_t *mmap_cache;
 
+#ifdef HAVE_LINUX_KVM_H
+	struct vcpu_info *vcpu_info_list;
+#endif
+
 #ifdef ENABLE_STACKTRACE
 	void *unwind_ctx;
 	struct unwind_queue_t *unwind_queue;
@@ -326,6 +330,7 @@ extern const struct xlat evdev_abs[];
 /** Number of elements in evdev_abs array without the terminating record. */
 extern const size_t evdev_abs_size;
 
+extern const struct xlat evdev_ev[];
 extern const struct xlat iffflags[];
 extern const struct xlat ip_type_of_services[];
 extern const struct xlat ipc_private[];
@@ -374,11 +379,24 @@ enum sock_proto {
 	SOCK_PROTO_UNIX,
 	SOCK_PROTO_TCP,
 	SOCK_PROTO_UDP,
+	SOCK_PROTO_UDPLITE,
+	SOCK_PROTO_DCCP,
+	SOCK_PROTO_SCTP,
+	SOCK_PROTO_L2TP_IP,
+	SOCK_PROTO_PING,
+	SOCK_PROTO_RAW,
 	SOCK_PROTO_TCPv6,
 	SOCK_PROTO_UDPv6,
-	SOCK_PROTO_NETLINK
+	SOCK_PROTO_UDPLITEv6,
+	SOCK_PROTO_DCCPv6,
+	SOCK_PROTO_L2TP_IPv6,
+	SOCK_PROTO_SCTPv6,
+	SOCK_PROTO_PINGv6,
+	SOCK_PROTO_RAWv6,
+	SOCK_PROTO_NETLINK,
 };
 extern enum sock_proto get_proto_by_name(const char *);
+extern int get_family_by_proto(enum sock_proto proto);
 
 enum iov_decode {
 	IOV_DECODE_ADDR,
@@ -688,9 +706,9 @@ printxval_searchn(const struct xlat *xlat, size_t xlat_size, uint64_t val,
  */
 #define printxval_search(xlat__, val__, dflt__) \
 	printxval_searchn(xlat__, ARRAY_SIZE(xlat__) - 1, val__, dflt__)
-#define printxval_search_ex(xlat__, val__, dflt__) \
+#define printxval_search_ex(xlat__, val__, dflt__, style__) \
 	printxval_searchn_ex((xlat__), ARRAY_SIZE(xlat__) - 1, (val__), \
-			     (dflt__), XLAT_STYLE_DEFAULT)
+			     (dflt__), (style__))
 
 extern int printxval_indexn_ex(const struct xlat *, size_t xlat_size,
 			       uint64_t val, const char *dflt, enum xlat_style);
@@ -729,6 +747,30 @@ printxval_dispatch(const struct xlat *xlat, size_t xlat_size, uint64_t val,
 	return printxval_dispatch_ex(xlat, xlat_size, val, dflt, xt,
 				     XLAT_STYLE_DEFAULT);
 }
+
+enum xlat_style_private_flag_bits {
+	/* print_array */
+	PAF_PRINT_INDICES_BIT = XLAT_STYLE_SPEC_BITS + 1,
+	PAF_INDEX_XLAT_SORTED_BIT,
+	PAF_INDEX_XLAT_VALUE_INDEXED_BIT,
+
+	/* print_xlat */
+	PXF_DEFAULT_STR_BIT,
+};
+
+#define FLAG_(name_) name_ = 1 << name_##_BIT
+
+enum xlat_style_private_flags {
+	/* print_array */
+	FLAG_(PAF_PRINT_INDICES),
+	FLAG_(PAF_INDEX_XLAT_SORTED),
+	FLAG_(PAF_INDEX_XLAT_VALUE_INDEXED),
+
+	/* print_xlat */
+	FLAG_(PXF_DEFAULT_STR),
+};
+
+#undef FLAG_
 
 /** Print a value in accordance with xlat formatting settings. */
 extern void print_xlat_ex(uint64_t val, const char *str, enum xlat_style style);
@@ -781,21 +823,6 @@ typedef bool (*tfetch_mem_fn)(struct tcb *, kernel_ulong_t addr,
 typedef bool (*print_fn)(struct tcb *, void *elem_buf,
 			 size_t elem_size, void *opaque_data);
 
-enum print_array_flag_bits {
-	PAF_PRINT_INDICES_BIT = XLAT_STYLE_SPEC_BITS + 1,
-	PAF_INDEX_XLAT_SORTED_BIT,
-	PAF_INDEX_XLAT_VALUE_INDEXED_BIT,
-};
-
-#define FLAG_(name_) name_ = 1 << name_##_BIT
-
-enum print_array_flags {
-	FLAG_(PAF_PRINT_INDICES),
-	FLAG_(PAF_INDEX_XLAT_SORTED),
-	FLAG_(PAF_INDEX_XLAT_VALUE_INDEXED),
-};
-
-#undef FLAG_
 
 /**
  * @param flags Combination of xlat style settings and additional flags from
@@ -864,6 +891,8 @@ print_inet_addr(int af, const void *addr, unsigned int len, const char *var_name
 extern bool
 decode_inet_addr(struct tcb *, kernel_ulong_t addr,
 		 unsigned int len, int family, const char *var_name);
+extern void print_ax25_addr(const void /* ax25_address */ *addr);
+extern void print_x25_addr(const void /* struct x25_address */ *addr);
 extern const char *get_sockaddr_by_inode(struct tcb *, int fd, unsigned long inode);
 extern bool print_sockaddr_by_inode(struct tcb *, int fd, unsigned long inode);
 extern void print_dirfd(struct tcb *, int);
@@ -922,6 +951,7 @@ fetch_perf_event_attr(struct tcb *const tcp, const kernel_ulong_t addr);
 extern void
 print_perf_event_attr(struct tcb *const tcp, const kernel_ulong_t addr);
 
+extern const char *get_ifname(const unsigned int ifindex);
 extern void print_ifindex(unsigned int);
 
 extern void print_bpf_filter_code(const uint16_t code, bool extended);
@@ -940,6 +970,7 @@ DECL_IOCTL(file);
 DECL_IOCTL(fs_x);
 DECL_IOCTL(inotify);
 DECL_IOCTL(kvm);
+DECL_IOCTL(nbd);
 DECL_IOCTL(nsfs);
 DECL_IOCTL(ptp);
 DECL_IOCTL(scsi);
@@ -986,6 +1017,11 @@ extern void unwind_tcb_init(struct tcb *);
 extern void unwind_tcb_fin(struct tcb *);
 extern void unwind_tcb_print(struct tcb *);
 extern void unwind_tcb_capture(struct tcb *);
+#endif
+
+#ifdef HAVE_LINUX_KVM_H
+extern void kvm_run_structure_decoder_init(void);
+extern void kvm_vcpu_info_free(struct tcb *);
 #endif
 
 static inline int

@@ -3,6 +3,8 @@
 
 #include <linux/inet_diag.h>
 
+#include "gcc_compat.h"
+
 /* Request structure */
 struct smc_diag_req {
 	uint8_t diag_family;
@@ -28,6 +30,8 @@ enum {
 	SMC_DIAG_CONNINFO,
 	SMC_DIAG_LGRINFO,
 	SMC_DIAG_SHUTDOWN,
+	SMC_DIAG_DMBINFO,
+	SMC_DIAG_FALLBACK,
 };
 
 /* SMC_DIAG_CONNINFO */
@@ -64,9 +68,25 @@ struct smc_diag_linkinfo {
 	uint8_t peer_gid[40];
 };
 
+/* SMC_DIAG_LGRINFO */
 struct smc_diag_lgrinfo {
 	struct smc_diag_linkinfo lnk[1];
 	uint8_t role;
+};
+
+/* SMC_DIAG_DMBINFO */
+struct smcd_diag_dmbinfo {
+	uint32_t linkid;
+	uint64_t ATTRIBUTE_ALIGNED(8) peer_gid;
+	uint64_t ATTRIBUTE_ALIGNED(8) my_gid;
+	uint64_t ATTRIBUTE_ALIGNED(8) token;
+	uint64_t ATTRIBUTE_ALIGNED(8) peer_token;
+};
+
+/* SMC_DIAG_FALLBACK */
+struct smc_diag_fallback {
+	uint32_t reason;
+	uint32_t peer_diagnosis;
 };
 
 #endif /* !STRACE_LINUX_SMC_DIAG_H */

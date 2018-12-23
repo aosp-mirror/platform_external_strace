@@ -2,7 +2,7 @@
  * This file is part of inet-yy strace test.
  *
  * Copyright (c) 2014-2016 Dmitry V. Levin <ldv@altlinux.org>
- * Copyright (c) 2014-2017 The strace developers.
+ * Copyright (c) 2014-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,8 +100,8 @@ check_responses(const int fd)
 		perror_msg_and_skip("recvmsg");
 
 	struct nlmsghdr *h = &hdr_buf.hdr;
-	if (!NLMSG_OK(h, ret))
-		error_msg_and_skip("!NLMSG_OK");
+	if (!is_nlmsg_ok(h, ret))
+		error_msg_and_skip("!is_nlmsg_ok");
 	if (h->nlmsg_type == NLMSG_ERROR) {
 		const struct nlmsgerr *err = NLMSG_DATA(h);
 		if (h->nlmsg_len < NLMSG_LENGTH(sizeof(*err)))

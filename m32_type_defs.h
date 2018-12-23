@@ -55,6 +55,9 @@
 #ifdef MPERS_m32_struct_statfs64
 # define struct_statfs64 MPERS_m32_struct_statfs64
 #endif
+#ifdef MPERS_m32_struct_xfs_dqstats
+# define struct_xfs_dqstats MPERS_m32_struct_xfs_dqstats
+#endif
 #ifdef MPERS_m32_struct_hd_geometry
 # define struct_hd_geometry MPERS_m32_struct_hd_geometry
 #endif
