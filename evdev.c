@@ -30,6 +30,7 @@
 #include "defs.h"
 
 #include "xlat/evdev_abs.h"
+#include "xlat/evdev_ev.h"
 
 #ifdef HAVE_LINUX_INPUT_H
 
@@ -47,7 +48,6 @@
 # include "xlat/evdev_relative_axes.h"
 # include "xlat/evdev_snd.h"
 # include "xlat/evdev_switch.h"
-# include "xlat/evdev_sync.h"
 
 # ifndef SYN_MAX
 #  define SYN_MAX 0xf
@@ -171,10 +171,10 @@ decode_bitset_(struct tcb *const tcp, const kernel_ulong_t arg,
 	tprints(", ");
 
 	unsigned int size;
-	if ((kernel_ulong_t) tcp->u_rval > max_nr)
+	if ((kernel_ulong_t) tcp->u_rval > max_nr / 8)
 		size = max_nr;
 	else
-		size = tcp->u_rval;
+		size = tcp->u_rval * 8;
 	char decoded_arg[size];
 
 	if (umove_or_printaddr(tcp, arg, &decoded_arg))
@@ -258,9 +258,9 @@ bit_ioctl(struct tcb *const tcp, const unsigned int ev_nr,
 	  const kernel_ulong_t arg)
 {
 	switch (ev_nr) {
-		case EV_SYN:
-			return decode_bitset(tcp, arg, evdev_sync,
-					     SYN_MAX, "SYN_???", XT_INDEXED);
+		case 0:
+			return decode_bitset(tcp, arg, evdev_ev,
+					     EV_MAX, "EV_???", XT_SORTED);
 		case EV_KEY:
 			return decode_bitset(tcp, arg, evdev_keycode,
 					     KEY_MAX, "KEY_???", XT_INDEXED);

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017 JingPiao Chen <chenjingpiao@gmail.com>
- * Copyright (c) 2017 The strace developers.
+ * Copyright (c) 2017-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,20 +29,27 @@
 #include "defs.h"
 #include <sys/socket.h>
 
-#ifdef AF_SMC
+#ifndef AF_SMC
+# define XLAT_MACROS_ONLY
+# include "xlat/addrfams.h"
+# undef XLAT_MACROS_ONLY
+#endif
 
-# include "netlink.h"
-# include "netlink_sock_diag.h"
-# include "nlattr.h"
-# include "print_fields.h"
+#include "netlink.h"
+#include "netlink_sock_diag.h"
+#include "nlattr.h"
+#include "print_fields.h"
 
-# include <arpa/inet.h>
-# include <linux/smc_diag.h>
+#include <arpa/inet.h>
+#include <linux/smc_diag.h>
 
-# include "xlat/smc_diag_attrs.h"
-# include "xlat/smc_diag_extended_flags.h"
-# include "xlat/smc_link_group_roles.h"
-# include "xlat/smc_states.h"
+#include "xlat/smc_decl_codes.h"
+#include "xlat/smc_diag_attrs.h"
+#include "xlat/smc_diag_extended_flags.h"
+#include "xlat/smc_diag_mode.h"
+#include "xlat/smc_link_group_roles.h"
+#include "xlat/smc_states.h"
+#include "xlat/sock_shutdown_flags.h"
 
 DECL_NETLINK_DIAG_DECODER(decode_smc_diag_req)
 {
@@ -142,10 +149,76 @@ decode_smc_diag_lgrinfo(struct tcb *const tcp,
 	return true;
 }
 
+static bool
+decode_smc_diag_shutdown(struct tcb *const tcp,
+			 const kernel_ulong_t addr,
+			 const unsigned int len,
+			 const void *const opaque_data)
+{
+	const struct decode_nla_xlat_opts opts = {
+		ARRSZ_PAIR(sock_shutdown_flags), "???_SHUTDOWN",
+		.size = 1,
+	};
+
+	return decode_nla_flags(tcp, addr, len, &opts);
+}
+
+static bool
+decode_smc_diag_dmbinfo(struct tcb *const tcp,
+			const kernel_ulong_t addr,
+			const unsigned int len,
+			const void *const opaque_data)
+{
+	struct smcd_diag_dmbinfo dinfo;
+
+	if (len < sizeof(dinfo))
+		return false;
+	if (umove_or_printaddr(tcp, addr, &dinfo))
+		return true;
+
+	PRINT_FIELD_U("{", dinfo, linkid);
+	PRINT_FIELD_X(", ", dinfo, peer_gid);
+	PRINT_FIELD_X(", ", dinfo, my_gid);
+	PRINT_FIELD_X(", ", dinfo, token);
+	PRINT_FIELD_X(", ", dinfo, peer_token);
+	tprints("}");
+
+	return true;
+}
+static bool
+decode_smc_diag_fallback(struct tcb *const tcp,
+			 const kernel_ulong_t addr,
+			 const unsigned int len,
+			 const void *const opaque_data)
+{
+	struct smc_diag_fallback fb;
+
+	if (len < sizeof(fb))
+		return false;
+	if (umove_or_printaddr(tcp, addr, &fb))
+		return true;
+
+	/*
+	 * We print them verbose since they are defined in a non-UAPI header,
+	 * net/smc/smc_clc.h
+	 */
+	tprints("{reason=");
+	printxval_search_ex(smc_decl_codes, fb.reason,
+			    "SMC_CLC_DECL_???", XLAT_STYLE_VERBOSE);
+	tprints(", peer_diagnosis=");
+	printxval_search_ex(smc_decl_codes, fb.peer_diagnosis,
+			    "SMC_CLC_DECL_???", XLAT_STYLE_VERBOSE);
+	tprints("}");
+
+	return true;
+}
+
 static const nla_decoder_t smc_diag_msg_nla_decoders[] = {
 	[SMC_DIAG_CONNINFO]	= decode_smc_diag_conninfo,
 	[SMC_DIAG_LGRINFO]	= decode_smc_diag_lgrinfo,
-	[SMC_DIAG_SHUTDOWN]	= decode_nla_u8
+	[SMC_DIAG_SHUTDOWN]	= decode_smc_diag_shutdown,
+	[SMC_DIAG_DMBINFO]      = decode_smc_diag_dmbinfo,
+	[SMC_DIAG_FALLBACK]	= decode_smc_diag_fallback,
 };
 
 DECL_NETLINK_DIAG_DECODER(decode_smc_diag_msg)
@@ -162,7 +235,9 @@ DECL_NETLINK_DIAG_DECODER(decode_smc_diag_msg)
 					 (void *) &msg + offset)) {
 			PRINT_FIELD_XVAL("", msg, diag_state,
 					 smc_states, "SMC_???");
-			PRINT_FIELD_U(", ", msg, diag_fallback);
+			PRINT_FIELD_XVAL_INDEX(", ", msg, diag_fallback,
+					       smc_diag_mode,
+					       "SMC_DIAG_MODE_???");
 			PRINT_FIELD_U(", ", msg, diag_shutdown);
 			/*
 			 * AF_SMC protocol family socket handler
@@ -186,5 +261,3 @@ DECL_NETLINK_DIAG_DECODER(decode_smc_diag_msg)
 			      ARRAY_SIZE(smc_diag_msg_nla_decoders), NULL);
 	}
 }
-
-#endif /* AF_SMC */

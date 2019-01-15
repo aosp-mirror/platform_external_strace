@@ -31,6 +31,13 @@ DIAG_POP_IGNORE_TAUTOLOGICAL_COMPARE
 #else
 # define TRAP_HWBKPT 4
 #endif
+#if defined(TRAP_UNK) || (defined(HAVE_DECL_TRAP_UNK) && HAVE_DECL_TRAP_UNK)
+DIAG_PUSH_IGNORE_TAUTOLOGICAL_COMPARE
+static_assert((TRAP_UNK) == (5), "TRAP_UNK != 5");
+DIAG_POP_IGNORE_TAUTOLOGICAL_COMPARE
+#else
+# define TRAP_UNK 5
+#endif
 
 #ifndef XLAT_MACROS_ONLY
 
@@ -60,6 +67,7 @@ const struct xlat sigtrap_codes[] = {
   XLAT(TRAP_ILLTRAP),
 #endif
  XLAT(TRAP_HWBKPT),
+ XLAT(TRAP_UNK),
  XLAT_END
 };
 
