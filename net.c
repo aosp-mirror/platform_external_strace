@@ -86,7 +86,9 @@
 
 #define XLAT_MACROS_ONLY
 # include "xlat/addrfams.h"
+# include "xlat/ethernet_protocols.h"
 #undef XLAT_MACROS_ONLY
+#include "xlat/ax25_protocols.h"
 #include "xlat/irda_protocols.h"
 #include "xlat/can_protocols.h"
 #include "xlat/bt_protocols.h"
@@ -144,8 +146,21 @@ SYS_FUNC(socket)
 		printxval_search(inet_protocols, tcp->u_arg[2], "IPPROTO_???");
 		break;
 
+	case AF_AX25:
+		/* Those are not available in public headers.  */
+		printxval_searchn_ex(ARRSZ_PAIR(ax25_protocols), tcp->u_arg[2],
+				     "AX25_P_???", XLAT_STYLE_VERBOSE);
+		break;
+
 	case AF_NETLINK:
 		printxval(netlink_protocols, tcp->u_arg[2], "NETLINK_???");
+		break;
+
+	case AF_PACKET:
+		tprints("htons(");
+		printxval_searchn(ethernet_protocols, ethernet_protocols_size,
+				  ntohs(tcp->u_arg[2]), "ETH_P_???");
+		tprints(")");
 		break;
 
 	case AF_IRDA:
@@ -437,6 +452,7 @@ SYS_FUNC(socketpair)
 #include "xlat/getsock_ipv6_options.h"
 #include "xlat/setsock_ipv6_options.h"
 #include "xlat/sock_ipx_options.h"
+#include "xlat/sock_ax25_options.h"
 #include "xlat/sock_netlink_options.h"
 #include "xlat/sock_packet_options.h"
 #include "xlat/sock_raw_options.h"
@@ -458,6 +474,7 @@ SYS_FUNC(socketpair)
 #include "xlat/sock_nfcllcp_options.h"
 #include "xlat/sock_kcm_options.h"
 #include "xlat/sock_tls_options.h"
+#include "xlat/sock_xdp_options.h"
 
 static void
 print_sockopt_fd_level_name(struct tcb *tcp, int fd, unsigned int level,
@@ -487,11 +504,14 @@ print_sockopt_fd_level_name(struct tcb *tcp, int fd, unsigned int level,
 	case SOL_IPX:
 		printxval(sock_ipx_options, name, "IPX_???");
 		break;
+	case SOL_AX25:
+		printxval_search(sock_ax25_options, name, "AX25_???");
+		break;
 	case SOL_PACKET:
 		printxval(sock_packet_options, name, "PACKET_???");
 		break;
 	case SOL_TCP:
-		printxval(sock_tcp_options, name, "TCP_???");
+		printxval_index(sock_tcp_options, name, "TCP_???");
 		break;
 	case SOL_SCTP:
 		printxval(sock_sctp_options, name, "SCTP_???");
@@ -550,6 +570,9 @@ print_sockopt_fd_level_name(struct tcb *tcp, int fd, unsigned int level,
 	case SOL_TLS:
 		printxval(sock_tls_options, name, "TLS_???");
 		break;
+	case SOL_XDP:
+		printxval_index(sock_xdp_options, name, "XDP_???");
+		break;
 
 		/* Other SOL_* protocol levels still need work. */
 
@@ -561,91 +584,145 @@ print_sockopt_fd_level_name(struct tcb *tcp, int fd, unsigned int level,
 }
 
 static void
-print_set_linger(struct tcb *const tcp, const kernel_ulong_t addr,
-		 const int len)
-{
-	struct linger linger;
-
-	if (len < (int) sizeof(linger)) {
-		printaddr(addr);
-	} else if (!umove_or_printaddr(tcp, addr, &linger)) {
-		PRINT_FIELD_D("{", linger, l_onoff);
-		PRINT_FIELD_D(", ", linger, l_linger);
-		tprints("}");
-	}
-}
-
-static void
 print_get_linger(struct tcb *const tcp, const kernel_ulong_t addr,
 		 unsigned int len)
 {
 	struct linger linger;
 
-	if (len < sizeof(linger)) {
-		if (len != sizeof(linger.l_onoff)) {
-			printstr_ex(tcp, addr, len, QUOTE_FORCE_HEX);
-			return;
-		}
-	} else {
+	/*
+	 * The kernel cannot return len > sizeof(linger) because struct linger
+	 * cannot change, but extra safety won't harm either.
+	 */
+	if (len > sizeof(linger))
 		len = sizeof(linger);
-	}
-
-	if (umoven(tcp, addr, len, &linger) < 0) {
-		printaddr(addr);
+	if (umoven_or_printaddr(tcp, addr, len, &linger))
 		return;
-	}
 
-	PRINT_FIELD_D("{", linger, l_onoff);
-	if (len == sizeof(linger))
-		PRINT_FIELD_D(", ", linger, l_linger);
+	if (len < sizeof(linger.l_onoff)) {
+		tprints("{l_onoff=");
+		print_quoted_string((void *) &linger.l_onoff,
+				    len, QUOTE_FORCE_HEX);
+	} else {
+		PRINT_FIELD_D("{", linger, l_onoff);
+
+		if (len > offsetof(struct linger, l_linger)) {
+			len -= offsetof(struct linger, l_linger);
+			if (len < sizeof(linger.l_linger)) {
+				tprints(", l_linger=");
+				print_quoted_string((void *) &linger.l_linger,
+						    len, QUOTE_FORCE_HEX);
+			} else {
+				PRINT_FIELD_D(", ", linger, l_linger);
+			}
+		}
+	}
 	tprints("}");
 }
 
-#ifdef SO_PEERCRED
 static void
-print_ucred(struct tcb *const tcp, const kernel_ulong_t addr, unsigned int len)
+print_get_ucred(struct tcb *const tcp, const kernel_ulong_t addr,
+		unsigned int len)
 {
 	struct ucred uc;
 
-	if (len < sizeof(uc)) {
-		if (len != sizeof(uc.pid)
-		    && len != offsetofend(struct ucred, uid)) {
-			printstr_ex(tcp, addr, len, QUOTE_FORCE_HEX);
-			return;
-		}
-	} else {
+	/*
+	 * The kernel is very unlikely to return len > sizeof(uc)
+	 * because struct ucred is very unlikely to change,
+	 * but extra safety won't harm either.
+	 */
+	if (len > sizeof(uc))
 		len = sizeof(uc);
-	}
 
-	if (umoven(tcp, addr, len, &uc) < 0) {
-		printaddr(addr);
+	if (umoven_or_printaddr(tcp, addr, len, &uc))
 		return;
-	}
 
-	PRINT_FIELD_D("{", uc, pid);
-	if (len > sizeof(uc.pid))
-		PRINT_FIELD_UID(", ", uc, uid);
-	if (len == sizeof(uc))
-		PRINT_FIELD_UID(", ", uc, gid);
+	if (len < sizeof(uc.pid)) {
+		tprints("{pid=");
+		print_quoted_string((void *) &uc.pid,
+				    len, QUOTE_FORCE_HEX);
+	} else {
+		PRINT_FIELD_D("{", uc, pid);
+
+		if (len > offsetof(struct ucred, uid)) {
+			len -= offsetof(struct ucred, uid);
+			if (len < sizeof(uc.uid)) {
+				tprints(", uid=");
+				print_quoted_string((void *) &uc.uid,
+						    len, QUOTE_FORCE_HEX);
+			} else {
+				PRINT_FIELD_UID(", ", uc, uid);
+
+				if (len > offsetof(struct ucred, gid) -
+					  offsetof(struct ucred, uid)) {
+					len -= offsetof(struct ucred, gid) -
+					       offsetof(struct ucred, uid);
+					if (len < sizeof(uc.gid)) {
+						tprints(", gid=");
+						print_quoted_string((void *) &uc.gid,
+								    len,
+								    QUOTE_FORCE_HEX);
+					} else {
+						PRINT_FIELD_UID(", ", uc, gid);
+					}
+				}
+			}
+		}
+	}
 	tprints("}");
 }
-#endif /* SO_PEERCRED */
 
 #ifdef PACKET_STATISTICS
 static void
 print_tpacket_stats(struct tcb *const tcp, const kernel_ulong_t addr,
-		    const int len)
+		    unsigned int len)
 {
-	struct tpacket_stats stats;
+	struct tp_stats {
+		unsigned int tp_packets, tp_drops, tp_freeze_q_cnt;
+	} stats;
 
-	if (len != sizeof(stats) ||
-	    umove(tcp, addr, &stats) < 0) {
-		printaddr(addr);
+	/*
+	 * The kernel may return len > sizeof(stats) if the kernel structure
+	 * grew as it happened when tpacket_stats_v3 was introduced.
+	 */
+	if (len > sizeof(stats))
+		len = sizeof(stats);
+
+	if (umoven_or_printaddr(tcp, addr, len, &stats))
+		return;
+
+	if (len < sizeof(stats.tp_packets)) {
+		tprints("{tp_packets=");
+		print_quoted_string((void *) &stats.tp_packets,
+				    len, QUOTE_FORCE_HEX);
 	} else {
 		PRINT_FIELD_U("{", stats, tp_packets);
-		PRINT_FIELD_U("{", stats, tp_drops);
-		tprints("}");
+
+		if (len > offsetof(struct tp_stats, tp_drops)) {
+			len -= offsetof(struct tp_stats, tp_drops);
+			if (len < sizeof(stats.tp_drops)) {
+				tprints(", tp_drops=");
+				print_quoted_string((void *) &stats.tp_drops,
+						    len, QUOTE_FORCE_HEX);
+			} else {
+				PRINT_FIELD_U(", ", stats, tp_drops);
+
+				if (len > offsetof(struct tp_stats, tp_freeze_q_cnt) -
+					  offsetof(struct tp_stats, tp_drops)) {
+					len -= offsetof(struct tp_stats, tp_freeze_q_cnt) -
+					       offsetof(struct tp_stats, tp_drops);
+					if (len < sizeof(stats.tp_freeze_q_cnt)) {
+						tprints(", tp_freeze_q_cnt=");
+						print_quoted_string((void *) &stats.tp_freeze_q_cnt,
+								    len,
+								    QUOTE_FORCE_HEX);
+					} else {
+						PRINT_FIELD_U(", ", stats, tp_freeze_q_cnt);
+					}
+				}
+			}
+		}
 	}
+	tprints("}");
 }
 #endif /* PACKET_STATISTICS */
 
@@ -684,6 +761,17 @@ print_getsockopt(struct tcb *const tcp, const unsigned int level,
 		 const unsigned int name, const kernel_ulong_t addr,
 		 const int ulen, const int rlen)
 {
+	if (ulen <= 0 || rlen <= 0) {
+		/*
+		 * As the kernel neither accepts nor returns a negative
+		 * length in case of successful getsockopt syscall
+		 * invocation, negative values must have been forged
+		 * by userspace.
+		 */
+		printaddr(addr);
+		return;
+	}
+
 	if (addr && verbose(tcp))
 	switch (level) {
 	case SOL_SOCKET:
@@ -691,19 +779,21 @@ print_getsockopt(struct tcb *const tcp, const unsigned int level,
 		case SO_LINGER:
 			print_get_linger(tcp, addr, rlen);
 			return;
-#ifdef SO_PEERCRED
 		case SO_PEERCRED:
-			print_ucred(tcp, addr, rlen);
+			print_get_ucred(tcp, addr, rlen);
 			return;
-#endif
-#ifdef SO_ATTACH_FILTER
 		case SO_ATTACH_FILTER:
-			if (rlen && (unsigned short) rlen == (unsigned int) rlen)
+			/*
+			 * The length returned by the kernel in case of
+			 * successful getsockopt syscall invocation is struct
+			 * sock_fprog.len that has type unsigned short,
+			 * anything else must have been forged by userspace.
+			 */
+			if ((unsigned short) rlen == (unsigned int) rlen)
 				print_sock_fprog(tcp, addr, rlen);
 			else
 				printaddr(addr);
 			return;
-#endif /* SO_ATTACH_FILTER */
 		}
 		break;
 
@@ -726,16 +816,6 @@ print_getsockopt(struct tcb *const tcp, const unsigned int level,
 		break;
 
 	case SOL_NETLINK:
-		if (ulen < 0 || rlen < 0) {
-			/*
-			 * As the kernel neither accepts nor returns a negative
-			 * length, in case of successful getsockopt syscall
-			 * invocation these negative values must have come
-			 * from userspace.
-			 */
-			printaddr(addr);
-			return;
-		}
 		switch (name) {
 		case NETLINK_LIST_MEMBERSHIPS: {
 			uint32_t buf;
@@ -798,6 +878,21 @@ SYS_FUNC(getsockopt)
 		}
 	}
 	return 0;
+}
+
+static void
+print_set_linger(struct tcb *const tcp, const kernel_ulong_t addr,
+		 const int len)
+{
+	struct linger linger;
+
+	if (len < (int) sizeof(linger)) {
+		printaddr(addr);
+	} else if (!umove_or_printaddr(tcp, addr, &linger)) {
+		PRINT_FIELD_D("{", linger, l_onoff);
+		PRINT_FIELD_D(", ", linger, l_linger);
+		tprints("}");
+	}
 }
 
 #ifdef IP_ADD_MEMBERSHIP
@@ -893,17 +988,13 @@ print_setsockopt(struct tcb *const tcp, const unsigned int level,
 		case SO_LINGER:
 			print_set_linger(tcp, addr, len);
 			return;
-#ifdef SO_ATTACH_FILTER
 		case SO_ATTACH_FILTER:
-# ifdef SO_ATTACH_REUSEPORT_CBPF
 		case SO_ATTACH_REUSEPORT_CBPF:
-# endif
 			if ((unsigned int) len == get_sock_fprog_size())
 				decode_sock_fprog(tcp, addr);
 			else
 				printaddr(addr);
 			return;
-#endif /* SO_ATTACH_FILTER */
 		}
 		break;
 
