@@ -51,6 +51,8 @@
 #include <asm/types.h>
 #ifdef HAVE_NETIPX_IPX_H
 # include <netipx/ipx.h>
+#else
+# include <linux/ipx.h>
 #endif
 
 #if defined(HAVE_LINUX_IP_VS_H)
