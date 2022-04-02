@@ -978,7 +978,9 @@
 #define HAVE_SIG_ATOMIC_T 1
 
 /* Define to 1 if the system provides static_assert */
-/* #undef HAVE_STATIC_ASSERT */
+#if __STDC_VERSION__ >= 201112L
+#define HAVE_STATIC_ASSERT 1
+#endif
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
