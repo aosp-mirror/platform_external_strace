@@ -781,9 +781,7 @@
 #define HAVE_LINUX_KCMP_H 1
 
 /* Define to 1 if you have the <linux/kvm.h> header file. */
-#if defined(__LP64__)
 #define HAVE_LINUX_KVM_H 1
-#endif
 
 /* Define to 1 if you have the <linux/memfd.h> header file. */
 #define HAVE_LINUX_MEMFD_H 1
