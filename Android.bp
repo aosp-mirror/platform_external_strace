@@ -253,6 +253,7 @@ cc_binary {
         "-Werror",
         "-Wno-initializer-overrides",
         "-Wno-missing-field-initializers",
+        "-Wno-nonnull",
         "-Wno-pointer-arith",
         "-Wno-unused-parameter",
         "-Wno-sign-compare",
