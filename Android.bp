@@ -170,6 +170,7 @@ cc_binary {
         "renameat.c",
         "resource.c",
         "retval.c",
+        "riscv.c",
         "rtc.c",
         "rtnl_addr.c",
         "rtnl_addrlabel.c",
@@ -252,6 +253,7 @@ cc_binary {
         "-Werror",
         "-Wno-initializer-overrides",
         "-Wno-missing-field-initializers",
+        "-Wno-nonnull",
         "-Wno-pointer-arith",
         "-Wno-unused-parameter",
         "-Wno-sign-compare",
@@ -289,6 +291,14 @@ cc_binary {
 
             local_include_dirs: [
                 "linux/aarch64",
+                "linux",
+            ],
+        },
+        riscv64: {
+            cflags: ["-DRISCV=1"],
+
+            local_include_dirs: [
+                "linux/riscv",
                 "linux",
             ],
         },
