@@ -41,6 +41,12 @@ const struct xlat mmap_prot[] = {
 #if defined(PROT_ADI) || (defined(HAVE_DECL_PROT_ADI) && HAVE_DECL_PROT_ADI)
   XLAT(PROT_ADI),
 #endif
+#if defined(PROT_BTI)
+  XLAT(PROT_BTI),
+#endif
+#if defined(PROT_MTE)
+  XLAT(PROT_MTE),
+#endif
  XLAT_END
 };
 
