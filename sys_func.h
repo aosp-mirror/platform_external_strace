@@ -208,6 +208,7 @@ extern SYS_FUNC(renameat2);
 extern SYS_FUNC(request_key);
 extern SYS_FUNC(restart_syscall);
 extern SYS_FUNC(riscv_flush_icache);
+extern SYS_FUNC(riscv_hwprobe);
 extern SYS_FUNC(rt_sigaction);
 extern SYS_FUNC(rt_sigpending);
 extern SYS_FUNC(rt_sigprocmask);
