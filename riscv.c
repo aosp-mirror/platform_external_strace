@@ -50,4 +50,21 @@ SYS_FUNC(riscv_flush_icache)
 	return RVAL_DECODED;
 }
 
+SYS_FUNC(riscv_hwprobe)
+{
+	/* uintptr_t probes */
+	printaddr(tcp->u_arg[0]);
+
+	/* size_t probe_count, size_t cpu_count */
+	tprintf(", %lu, %lu, ", tcp->u_arg[1], tcp->u_arg[2]);
+
+	/* uintptr_t pcus */
+	printaddr(tcp->u_arg[3]);
+
+	/* unsigned flags */
+	tprintf(", %#lx", tcp->u_arg[4]);
+
+	return RVAL_DECODED;
+}
+
 #endif /* RISCV */
