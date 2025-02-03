@@ -124,7 +124,7 @@ print_sched_attr(struct tcb *const tcp, const kernel_ulong_t addr,
 
 	tprintf("{size=%u", attr.size);
 
-	if (size >= SCHED_ATTR_MIN_SIZE) {
+	if (size >= SCHED_ATTR_SIZE_VER0) {
 		tprints(", sched_policy=");
 		printxval(schedulers, attr.sched_policy, "SCHED_???");
 		tprints(", sched_flags=");
@@ -135,9 +135,13 @@ print_sched_attr(struct tcb *const tcp, const kernel_ulong_t addr,
 
 		PRINT_SCHED_FIELD(sched_nice, "d");
 		PRINT_SCHED_FIELD(sched_priority, "u");
-		PRINT_SCHED_FIELD(sched_runtime, PRIu64);
-		PRINT_SCHED_FIELD(sched_deadline, PRIu64);
-		PRINT_SCHED_FIELD(sched_period, PRIu64);
+		tprintf(", sched_runtime=%llu", (unsigned long long) attr.sched_runtime);
+		tprintf(", sched_deadline=%llu", (unsigned long long) attr.sched_deadline);
+		tprintf(", sched_period=%llu", (unsigned long long) attr.sched_period);
+	}
+	if (size >= SCHED_ATTR_SIZE_VER1) {
+		PRINT_SCHED_FIELD(sched_util_min, "u");
+		PRINT_SCHED_FIELD(sched_util_max, "u");
 
 		if (usize > size)
 			tprints(", ...");
